@@ -1,10 +1,13 @@
 import { useState, useRef, useEffect } from 'react'
 import {
   Search, Plus, Building2, User, Briefcase, Shield,
-  ChevronLeft, ChevronRight, Eye, MoreHorizontal,
+  ChevronLeft, ChevronRight, Eye, Ban, AlertTriangle,
   Check, X, Filter, ChevronDown,
 } from 'lucide-react'
 import clsx from 'clsx'
+import CuentasBancariasTab from './CuentasBancariasTab'
+import ConveniosTab from './ConveniosTab'
+import ArbolTraderGlobalTab from './ArbolTraderGlobalTab'
 
 /* ═══════════════════════════════════════════════
    MOCK DATA
@@ -121,21 +124,34 @@ function FilterSelect({ value, onChange, options, placeholder }) {
 ═══════════════════════════════════════════════ */
 const PAGE_SIZE = 6
 
-export default function ClientesPage({ onNuevoCliente }) {
+export default function ClientesPage({ onNuevoCliente, onVerCliente, activeTab }) {
+  if (activeTab === 'cuentas_bancarias') return <CuentasBancariasTab />
+  if (activeTab === 'convenios')         return <ConveniosTab />
+  if (activeTab === 'arbol_trader')      return <ArbolTraderGlobalTab onVerCliente={onVerCliente} />
+  const [clientes,     setClientes]     = useState(MOCK_CLIENTES)
   const [search,       setSearch]       = useState('')
   const [filterTipo,   setFilterTipo]   = useState('')
   const [filterEstado, setFilterEstado] = useState('')
   const [dateFrom,     setDateFrom]     = useState('')
   const [dateTo,       setDateTo]       = useState('')
   const [page,         setPage]         = useState(1)
+  const [confirmInhabilitar, setConfirmInhabilitar] = useState(null) // cliente | null
+
+  function handleConfirmarInhabilitar() {
+    if (!confirmInhabilitar) return
+    setClientes(prev => prev.map(c =>
+      c.id === confirmInhabilitar.id ? { ...c, estado: 'no_habilitado' } : c
+    ))
+    setConfirmInhabilitar(null)
+  }
 
   /* Stats */
   const stats = [
-    { label: 'Total clientes',       value: MOCK_CLIENTES.length,                                            color: 'text-gray-900'  },
-    { label: 'Activos',              value: MOCK_CLIENTES.filter(c => c.estado === 'activo').length,          color: 'text-green-600' },
-    { label: 'Activo en proceso',    value: MOCK_CLIENTES.filter(c => c.estado === 'activo_proceso').length,  color: 'text-amber-600' },
-    { label: 'Pendiente aprobación', value: MOCK_CLIENTES.filter(c => c.estado === 'pendiente_legal').length, color: 'text-blue-600'  },
-    { label: 'No habilitados',       value: MOCK_CLIENTES.filter(c => c.estado === 'no_habilitado').length,   color: 'text-red-500'   },
+    { label: 'Total clientes',       value: clientes.length,                                            color: 'text-gray-900'  },
+    { label: 'Activos',              value: clientes.filter(c => c.estado === 'activo').length,          color: 'text-green-600' },
+    { label: 'Activo en proceso',    value: clientes.filter(c => c.estado === 'activo_proceso').length,  color: 'text-amber-600' },
+    { label: 'Pendiente aprobación', value: clientes.filter(c => c.estado === 'pendiente_legal').length, color: 'text-blue-600'  },
+    { label: 'No habilitados',       value: clientes.filter(c => c.estado === 'no_habilitado').length,   color: 'text-red-500'   },
   ]
 
   function parseDate(str) {
@@ -146,7 +162,7 @@ export default function ClientesPage({ onNuevoCliente }) {
 
   /* Filtered & paginated */
   const q = search.trim().toLowerCase()
-  const filtered = MOCK_CLIENTES.filter(c => {
+  const filtered = clientes.filter(c => {
     if (q && !c.nombre.toLowerCase().includes(q) && !c.doi.includes(q) && !c.id.toLowerCase().includes(q)) return false
     if (filterTipo   && c.tipo   !== filterTipo)   return false
     if (filterEstado && c.estado !== filterEstado) return false
@@ -303,7 +319,14 @@ export default function ClientesPage({ onNuevoCliente }) {
                 </td>
               </tr>
             ) : (
-              paginated.map(c => <ClienteRow key={c.id} cliente={c} />)
+              paginated.map(c => (
+                <ClienteRow
+                  key={c.id}
+                  cliente={c}
+                  onVer={onVerCliente}
+                  onInhabilitar={c.estado !== 'no_habilitado' ? () => setConfirmInhabilitar(c) : null}
+                />
+              ))
             )}
           </tbody>
         </table>
@@ -325,12 +348,48 @@ export default function ClientesPage({ onNuevoCliente }) {
           </div>
         )}
       </div>
+
+      {/* Modal confirmación inhabilitar */}
+      {confirmInhabilitar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/30" onClick={() => setConfirmInhabilitar(null)} />
+          <div className="relative bg-white rounded-xl shadow-xl p-6 w-96" style={{ border: '1px solid var(--color-border)' }}>
+            <div className="flex items-start gap-3 mb-4">
+              <div className="p-2 rounded-lg bg-red-50 shrink-0">
+                <Ban size={18} className="text-red-500" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 mb-0.5">Inhabilitar cliente</h3>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  ¿Confirmas inhabilitar a <span className="font-semibold text-gray-700">{confirmInhabilitar.nombre}</span>? El cliente quedará con estado <span className="font-semibold">No habilitado</span> y no podrá operar hasta ser reactivado.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 mb-5" style={{ border: '1px solid #fcd34d' }}>
+              <AlertTriangle size={12} className="text-amber-500 shrink-0" />
+              <p className="text-[11px] text-amber-700">Esta acción quedará registrada en el historial de auditoría.</p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleConfirmarInhabilitar}
+                className="flex-1 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors">
+                Confirmar inhabilitación
+              </button>
+              <button
+                onClick={() => setConfirmInhabilitar(null)}
+                className="px-4 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }
 
 /* ═══ ROW ══════════════════════════════════════════════════ */
-function ClienteRow({ cliente: c }) {
+function ClienteRow({ cliente: c, onVer, onInhabilitar }) {
   return (
     <tr className="group border-b last:border-0 hover:bg-gray-50/60 transition-colors"
       style={{ borderColor: 'var(--color-border)' }}>
@@ -368,15 +427,22 @@ function ClienteRow({ cliente: c }) {
         <p className="text-xs text-gray-500 whitespace-nowrap">{c.fecha}</p>
       </td>
       <td className="px-4 py-3">
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button title="Ver ficha"
+        <div className="flex items-center gap-1">
+          <button title="Ver ficha" onClick={() => onVer?.(c)}
             className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors">
             <Eye size={14} />
           </button>
-          <button title="Más opciones"
-            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
-            <MoreHorizontal size={14} />
-          </button>
+          {onInhabilitar ? (
+            <button title="Inhabilitar cliente" onClick={onInhabilitar}
+              className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors">
+              <Ban size={14} />
+            </button>
+          ) : (
+            <span title="Cliente ya inhabilitado"
+              className="p-1.5 rounded-lg text-gray-200 cursor-not-allowed">
+              <Ban size={14} />
+            </span>
+          )}
         </div>
       </td>
     </tr>

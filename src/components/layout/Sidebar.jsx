@@ -10,12 +10,13 @@ import clsx from 'clsx'
 const navByRole = {
   admin: {
     main: [
-      { icon: LayoutDashboard,   label: 'Panel Admin',      id: 'dashboard'  },
-      { icon: UserCog,           label: 'Usuarios y Roles', id: 'usuarios'   },
-      { icon: Building2,         label: 'Clientes',         id: 'clientes'   },
-      { icon: Database,          label: 'Catálogos',        id: 'catalogos'  },
-      { icon: SlidersHorizontal, label: 'Parámetros',       id: 'parametros' },
-      { icon: ClipboardList,     label: 'Auditoría',        id: 'auditoria'  },
+      { icon: LayoutDashboard,   label: 'Panel Admin',      id: 'dashboard'   },
+      { icon: UserCog,           label: 'Usuarios y Roles', id: 'usuarios'    },
+      { icon: Building2,         label: 'Clientes',         id: 'clientes'    },
+      { icon: ArrowLeftRight,    label: 'Operaciones',      id: 'operaciones' },
+      { icon: Database,          label: 'Catálogos',        id: 'catalogos'   },
+      { icon: SlidersHorizontal, label: 'Parámetros',       id: 'parametros'  },
+      { icon: ClipboardList,     label: 'Auditoría',        id: 'auditoria'   },
     ],
     bottom: [
       { icon: Settings, label: 'Configuración', id: 'settings' },

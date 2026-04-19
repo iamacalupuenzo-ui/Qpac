@@ -17,17 +17,32 @@ export const PERM_LABELS = {
 }
 
 export const MODULES = [
-  { id: 'dash_admin', label: 'Dashboard Administrador', group: 'Dashboards',          applicable: ['visible'] },
-  { id: 'dash_op',    label: 'Dashboard Operativo',     group: 'Dashboards',          applicable: ['visible'] },
-  { id: 'm0',  label: 'M0 · Gestión de Clientes',       group: 'Módulos Operativos',  applicable: ['visible','crear','editar','descargar'] },
-  { id: 'm1',  label: 'M1 · Front Office',              group: 'Módulos Operativos',  applicable: ['visible','crear','editar','descargar'] },
-  { id: 'm2',  label: 'M2 · Back Office',               group: 'Módulos Operativos',  applicable: ['visible','editar','descargar'] },
-  { id: 'm3',  label: 'M3 · Posición y Tesorería',      group: 'Módulos Operativos',  applicable: ['visible','editar','descargar'] },
-  { id: 'm4',  label: 'M4 · Cierre Diario',             group: 'Módulos Operativos',  applicable: ['visible','editar','ejecutar','descargar'] },
-  { id: 'm5',  label: 'M5 · Rep. Regulatorios',         group: 'Módulos Operativos',  applicable: ['visible','crear','descargar'] },
-  { id: 'm6',  label: 'M6 · Rep. Operativos',           group: 'Módulos Operativos',  applicable: ['visible','descargar'] },
-  { id: 'auditoria', label: 'Auditoría',                group: 'Transversales',       applicable: ['visible','descargar'] },
-  { id: 'config',    label: 'Configuración',            group: 'Transversales',       applicable: ['visible','crear','editar','eliminar'] },
+  /* ── Dashboards ── */
+  { id: 'dash_admin', label: 'Dashboard Administrador',         group: 'Dashboards',               applicable: ['visible'] },
+  { id: 'dash_op',    label: 'Dashboard Operativo',             group: 'Dashboards',               applicable: ['visible'] },
+
+  /* ── M0 · Gestión de Clientes (granular) ── */
+  { id: 'm0_cartera',     label: 'Cartera de clientes',         group: 'M0 · Gestión de Clientes', applicable: ['visible','crear','editar','descargar'] },
+  { id: 'm0_cuentas',     label: 'Cuentas bancarias',           group: 'M0 · Gestión de Clientes', applicable: ['visible','crear','editar','descargar'] },
+  { id: 'm0_convenios',   label: 'Convenios y documentación',   group: 'M0 · Gestión de Clientes', applicable: ['visible','crear','ejecutar','descargar'] },
+  { id: 'm0_excepciones', label: 'Excepciones documentarias',   group: 'M0 · Gestión de Clientes', applicable: ['visible','crear','ejecutar','editar'] },
+  { id: 'm0_arbol',       label: 'Árbol de Traders',            group: 'M0 · Gestión de Clientes', applicable: ['visible','editar'] },
+
+  /* ── Módulos operativos ── */
+  { id: 'm1',          label: 'M1 · Front Office',            group: 'Módulos Operativos', applicable: ['visible','crear','editar','descargar'] },
+  { id: 'm1_anulacion', label: 'Anulación de operaciones FX', group: 'Módulos Operativos', applicable: ['visible','crear','ejecutar'] },
+  { id: 'm2',  label: 'M2 · Back Office',          group: 'Módulos Operativos', applicable: ['visible','editar','descargar'] },
+  { id: 'm3',  label: 'M3 · Posición y Tesorería', group: 'Módulos Operativos', applicable: ['visible','editar','descargar'] },
+  { id: 'm4',  label: 'M4 · Cierre Diario',        group: 'Módulos Operativos', applicable: ['visible','editar','ejecutar','descargar'] },
+  { id: 'm5',  label: 'M5 · Rep. Regulatorios',    group: 'Módulos Operativos', applicable: ['visible','crear','descargar'] },
+  { id: 'm6',  label: 'M6 · Rep. Operativos',      group: 'Módulos Operativos', applicable: ['visible','descargar'] },
+
+  /* ── Administración ── */
+  { id: 'adm_mesas',    label: 'Catálogos · Mesas de Dinero', group: 'Administración', applicable: ['visible','crear','editar','eliminar'] },
+  { id: 'adm_usuarios', label: 'Usuarios y Roles',            group: 'Administración', applicable: ['visible','crear','editar','eliminar'] },
+
+  /* ── Transversales ── */
+  { id: 'auditoria', label: 'Auditoría', group: 'Transversales', applicable: ['visible','descargar'] },
 ]
 
 /* ═══════════════════════════════════════════════
@@ -71,20 +86,99 @@ const ROLE_COLOR = {
    PERMISOS INICIALES POR ROL
 ═══════════════════════════════════════════════ */
 const INITIAL_PERMS = {
-  admin:    { dash_admin:['visible'], dash_op:['visible'], m0:['visible','crear','editar','descargar'], m1:['visible','crear','editar','descargar'], m2:['visible','editar','descargar'], m3:['visible','editar','descargar'], m4:['visible','editar','ejecutar','descargar'], m5:['visible','crear','descargar'], m6:['visible','descargar'], auditoria:['visible','descargar'], config:['visible','crear','editar','eliminar'] },
-  trader:   { dash_op:['visible'], m1:['visible','crear','editar'], m3:['visible'], m6:['visible','descargar'] },
-  middle:   { dash_op:['visible'], m0:['visible','crear','editar','descargar'], m1:['visible'], m6:['visible','descargar'] },
-  back:     { dash_op:['visible'], m1:['visible'], m2:['visible','editar','descargar'], m6:['visible','descargar'] },
-  head:     { dash_op:['visible'], m0:['visible','editar'], m1:['visible','crear','editar'], m3:['visible','editar'], m5:['visible'], m6:['visible','descargar'] },
-  jefe_op:  { dash_op:['visible'], m2:['visible','editar','descargar'], m3:['visible'], m4:['visible','editar','ejecutar','descargar'], m6:['visible','crear','descargar'] },
-  tesoreria:{ dash_op:['visible'], m3:['visible','editar'], m4:['visible','editar','ejecutar','descargar'], m5:['visible'], m6:['visible','descargar'] },
-  contab:   { dash_op:['visible'], m3:['visible','editar'], m4:['visible'], m6:['visible','descargar'] },
-  head_tes: { dash_op:['visible'], m0:['visible','crear','editar'], m1:['visible','editar'], m2:['visible','editar'], m3:['visible','editar'], m4:['visible','editar','ejecutar','descargar'], m5:['visible','crear','descargar'], m6:['visible','crear','descargar'] },
-  gerente:  { dash_op:['visible'], m3:['visible'], m5:['visible'], m6:['visible','descargar'] },
-  riesgos:  { dash_op:['visible'], m3:['visible'], m5:['visible','crear','descargar'], m6:['visible'] },
-  plaft:    { dash_op:['visible'], m0:['visible','editar'], m6:['visible'] },
-  reportes: { dash_op:['visible'], m5:['visible','crear','descargar'], m6:['visible'] },
-  seguridad:{ auditoria:['visible','descargar'] },
+  admin: {
+    dash_admin:['visible'], dash_op:['visible'],
+    m0_cartera:['visible','crear','editar','descargar'],
+    m0_cuentas:['visible','crear','editar','descargar'],
+    m0_convenios:['visible','crear','ejecutar','descargar'],
+    m0_excepciones:['visible','crear','ejecutar','editar'],
+    m0_arbol:['visible','editar'],
+    m1:['visible','crear','editar','descargar'],
+    m1_anulacion:['visible','crear','ejecutar'],
+    m2:['visible','editar','descargar'],
+    m3:['visible','editar','descargar'], m4:['visible','editar','ejecutar','descargar'],
+    m5:['visible','crear','descargar'], m6:['visible','descargar'],
+    adm_mesas:['visible','crear','editar','eliminar'],
+    adm_usuarios:['visible','crear','editar','eliminar'],
+    auditoria:['visible','descargar'],
+  },
+  trader: {
+    dash_op:['visible'],
+    m1:['visible','crear','editar'],
+    m1_anulacion:['visible','crear'],          // solo puede solicitar, no ejecutar
+    m3:['visible'], m6:['visible','descargar'],
+  },
+  middle: {
+    dash_op:['visible'],
+    m0_cartera:['visible','crear','editar','descargar'],
+    m0_cuentas:['visible','crear','editar','descargar'],
+    m0_convenios:['visible','crear','descargar'],
+    m0_excepciones:['visible','crear','editar'],
+    m0_arbol:['visible','editar'],
+    m1:['visible'],
+    m1_anulacion:['visible','crear','ejecutar'], // puede solicitar y ejecutar/aprobar
+    m6:['visible','descargar'],
+  },
+  back: {
+    dash_op:['visible'],
+    m0_excepciones:['visible','ejecutar','editar'],
+    m1:['visible'],
+    m1_anulacion:['visible','ejecutar'],         // solo puede ejecutar (aprobar/rechazar)
+    m2:['visible','editar','descargar'], m6:['visible','descargar'],
+  },
+  head: {
+    dash_op:['visible'],
+    m0_cartera:['visible'],
+    m0_cuentas:['visible'],
+    m0_convenios:['visible','ejecutar'],
+    m0_excepciones:['visible','ejecutar'],
+    m0_arbol:['visible','editar'],
+    m1:['visible','crear','editar'],
+    m1_anulacion:['visible','crear','ejecutar'],
+    m3:['visible','editar'],
+    m5:['visible'], m6:['visible','descargar'],
+  },
+  jefe_op: {
+    dash_op:['visible'],
+    m2:['visible','editar','descargar'], m3:['visible'],
+    m4:['visible','editar','ejecutar','descargar'], m6:['visible','crear','descargar'],
+  },
+  tesoreria: {
+    dash_op:['visible'],
+    m3:['visible','editar'], m4:['visible','editar','ejecutar','descargar'],
+    m5:['visible'], m6:['visible','descargar'],
+  },
+  contab: {
+    dash_op:['visible'],
+    m3:['visible','editar'], m4:['visible'], m6:['visible','descargar'],
+  },
+  head_tes: {
+    dash_op:['visible'],
+    m0_cartera:['visible','crear','editar'],
+    m0_cuentas:['visible','crear','editar'],
+    m0_convenios:['visible','crear'],
+    m1:['visible','editar'], m2:['visible','editar'], m3:['visible','editar'],
+    m4:['visible','editar','ejecutar','descargar'],
+    m5:['visible','crear','descargar'], m6:['visible','crear','descargar'],
+  },
+  gerente: {
+    dash_op:['visible'],
+    m0_excepciones:['visible','ejecutar'],
+    m3:['visible'], m5:['visible'], m6:['visible','descargar'],
+  },
+  riesgos: {
+    dash_op:['visible'],
+    m3:['visible'], m5:['visible','crear','descargar'], m6:['visible'],
+  },
+  plaft: {
+    dash_op:['visible'],
+    m0_cartera:['visible','editar'], m0_convenios:['visible'], m6:['visible'],
+  },
+  reportes: {
+    dash_op:['visible'],
+    m5:['visible','crear','descargar'], m6:['visible'],
+  },
+  seguridad: { auditoria:['visible','descargar'] },
 }
 
 /* ═══════════════════════════════════════════════
