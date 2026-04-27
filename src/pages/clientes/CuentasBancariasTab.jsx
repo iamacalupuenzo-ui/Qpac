@@ -16,6 +16,7 @@ const MOCK_BANCOS = [
   { value: 'Interbank',  label: 'Interbank' },
   { value: 'Pichincha',  label: 'Banco Pichincha' },
   { value: 'GNB',        label: 'Banco GNB Perú' },
+  { value: 'BCRP',       label: 'BCRP — Banco Central de Reserva del Perú' },
 ]
 
 const CLIENTES_ACTIVOS = [
@@ -49,6 +50,7 @@ const BANK_META = {
   Interbank:  { abbr: 'IB',   bg: '#00A651', color: '#fff' },
   Pichincha:  { abbr: 'PCH',  bg: '#F7A800', color: '#fff' },
   GNB:        { abbr: 'GNB',  bg: '#1A1F6C', color: '#fff' },
+  BCRP:       { abbr: 'BCR',  bg: '#1A365D', color: '#fff' },
 }
 
 function BankBadge({ banco, size = 'sm' }) {

@@ -455,8 +455,7 @@ function InputIcon({ icon: Icon, children }) {
 /* ═══════════════════════════════════════════════
    USERS TAB
 ═══════════════════════════════════════════════ */
-function UsersTab() {
-  const [users, setUsers]               = useState(MOCK_USERS)
+function UsersTab({ users, setUsers }) {
   const [search, setSearch]             = useState('')
   const [filterRole, setFilterRole]     = useState('')
   const [filterStatus, setFilterStatus] = useState('')
@@ -554,8 +553,8 @@ function UsersTab() {
   function confirmDisable() {
     const u = confirmUser
     setConfirmUser(null)
-    setUsers(us => us.map(x => x.id === u.id ? { ...x, status: 'inactivo' } : x))
-    toast({ title: 'Usuario inhabilitado', message: `${u.name} fue inhabilitado correctamente.`, type: 'warning' })
+    setUsers(us => us.map(x => x.id === u.id ? { ...x, status: 'bloqueado' } : x))
+    toast({ title: 'Usuario bloqueado', message: `${u.name} fue bloqueado correctamente.`, type: 'warning' })
   }
 
   function enableUser(u) {
@@ -894,10 +893,10 @@ function UsersTab() {
 
             {/* Texto */}
             <div className="text-center">
-              <p className="text-sm font-semibold text-gray-900">¿Inhabilitar usuario?</p>
+              <p className="text-sm font-semibold text-gray-900">¿Bloquear usuario?</p>
               <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">
                 <span className="font-medium text-gray-700">{confirmUser.name}</span> perderá el acceso
-                al sistema de forma inmediata. Podrás habilitarlo nuevamente en cualquier momento.
+                al sistema de forma inmediata. Podrás desbloquearlo en cualquier momento.
               </p>
             </div>
 
@@ -911,9 +910,9 @@ function UsersTab() {
               </button>
               <button
                 onClick={confirmDisable}
-                className="flex-1 px-4 py-2.5 rounded-lg text-xs font-medium text-white bg-amber-500 hover:bg-amber-600 transition-colors"
+                className="flex-1 px-4 py-2.5 rounded-lg text-xs font-medium text-white bg-red-500 hover:bg-red-600 transition-colors"
               >
-                Sí, inhabilitar
+                Sí, bloquear
               </button>
             </div>
           </div>
@@ -930,5 +929,6 @@ function UsersTab() {
    renderiza el contenido según la tab activa.
 ═══════════════════════════════════════════════ */
 export default function UsersPage({ activeTab = 'registrados' }) {
-  return activeTab === 'roles' ? <RolesTab /> : <UsersTab />
+  const [users, setUsers] = useState(MOCK_USERS)
+  return activeTab === 'roles' ? <RolesTab /> : <UsersTab users={users} setUsers={setUsers} />
 }

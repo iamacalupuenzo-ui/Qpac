@@ -217,33 +217,41 @@ function StepIndicator({ currentStep }) {
 /* ═══════════════════════════════════════════════
    STEP 1 — TIPO DE CLIENTE
 ═══════════════════════════════════════════════ */
-function Step1({ formData, onChange }) {
+function Step1({ formData, onChange, errors }) {
   return (
     <div>
       <h3 className="text-sm font-semibold text-gray-900 mb-1">Tipo de cliente</h3>
       <p className="text-xs text-gray-500 mb-5">Selecciona el tipo de persona que corresponde al cliente a registrar. Este campo determina los datos y documentos requeridos.</p>
+      
+      {errors?.tipoPersona && (
+        <div className="mb-4 flex items-center gap-2 px-4 py-3 rounded-xl bg-red-50 border border-red-100 text-red-600 text-xs font-medium animate-in fade-in slide-in-from-top-1">
+          <AlertCircle size={14} />
+          {errors.tipoPersona}
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-3">
         {TIPOS.map(({ id, abbr, label, desc, Icon }) => {
           const sel = formData.tipoPersona === id
           return (
             <button key={id} type="button" onClick={() => onChange('tipoPersona', id)}
               className={clsx('text-left p-4 rounded-xl border-2 transition-all',
-                sel ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50')}>
+                sel ? 'border-blue-500 bg-blue-50 shadow-sm' : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50')}>
               <div className="flex items-start gap-3">
                 <div className={clsx('w-9 h-9 rounded-lg flex items-center justify-center shrink-0',
-                  sel ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500')}>
+                  sel ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500 transition-colors')}>
                   <Icon size={18} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <span className={clsx('text-[10px] font-bold px-1.5 py-0.5 rounded',
+                  <span className={clsx('text-[10px] font-bold px-1.5 py-0.5 rounded transition-colors',
                     sel ? 'bg-blue-200 text-blue-800' : 'bg-gray-100 text-gray-500')}>
                     {abbr}
                   </span>
-                  <p className={clsx('text-sm font-semibold mt-1', sel ? 'text-blue-900' : 'text-gray-800')}>{label}</p>
+                  <p className={clsx('text-sm font-semibold mt-1 transition-colors', sel ? 'text-blue-900' : 'text-gray-800')}>{label}</p>
                   <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{desc}</p>
                 </div>
                 {sel && (
-                  <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center shrink-0 mt-0.5">
+                  <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
                     <Check size={11} className="text-white" />
                   </div>
                 )}
@@ -299,7 +307,9 @@ function Step2({ formData, onChange, errors }) {
                 onChange={v => { onChange('tipoDoc', v); onChange('numDoc', ''); onChange('nacionalidad', '') }}
                 options={isEntidad
                   ? [{ value: 'RUC', label: 'RUC' }]
-                  : [{ value: 'DNI', label: 'DNI' }, { value: 'CE', label: 'Carné de Extranjería (CE)' }, { value: 'RUC', label: 'RUC' }]}
+                  : tipo === 'PN'
+                    ? [{ value: 'DNI', label: 'DNI' }, { value: 'CE', label: 'Carné de Extranjería (CE)' }]
+                    : [{ value: 'DNI', label: 'DNI' }, { value: 'CE', label: 'Carné de Extranjería (CE)' }, { value: 'RUC', label: 'RUC' }]}
                 error={errors?.tipoDoc}
               />
             </Field>
@@ -482,7 +492,7 @@ function Step3({ formData, docState, onUpload, onRemove, errors }) {
       <div className="mt-5 flex items-start gap-2.5 p-3 bg-blue-50 border border-blue-200 rounded-lg">
         <Info size={13} className="text-blue-500 mt-0.5 shrink-0" />
         <p className="text-xs text-blue-700">
-          Los documentos adjuntados quedan almacenados con trazabilidad. El sistema emitirá alertas cuando la Vigencia de Poderes esté próxima a vencer (AL-GC-09, a menos de 5 días).
+          Los documentos adjuntados quedan almacenados con trazabilidad.
         </p>
       </div>
     </div>
@@ -768,7 +778,7 @@ function validateStep(step, formData, docState) {
   return e
 }
 
-export default function ClienteWizard({ onBack }) {
+export default function ClienteWizard({ onBack, onSave, nextCode }) {
   const [step,      setStep]      = useState(1)
   const [formData,  setFormData]  = useState(INITIAL_FORM)
   const [docState,  setDocState]  = useState({})
@@ -776,7 +786,12 @@ export default function ClienteWizard({ onBack }) {
   const [confirmed, setConfirmed] = useState(false)
 
   function handleChange(field, value) {
-    setFormData(prev => ({ ...prev, [field]: value }))
+    if (field === 'tipoPersona') {
+      const defaultDoc = (value === 'PN' || value === 'P10') ? 'DNI' : 'RUC'
+      setFormData(prev => ({ ...prev, tipoPersona: value, tipoDoc: defaultDoc, numDoc: '', nacionalidad: '' }))
+    } else {
+      setFormData(prev => ({ ...prev, [field]: value }))
+    }
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: undefined }))
   }
 
@@ -798,59 +813,117 @@ export default function ClienteWizard({ onBack }) {
 
   function handleBack() {
     setErrors({})
-    setStep(s => s - 1)
+    setStep(s => Math.max(1, s - 1))
+  }
+
+  function handleConfirmar() {
+    if (onSave) {
+      const isPersona = formData.tipoPersona === 'PN' || formData.tipoPersona === 'P10'
+      const nombre = isPersona
+        ? [formData.apellidoPaterno, formData.apellidoMaterno, formData.nombres].filter(Boolean).join(' ')
+        : formData.razonSocial
+      const finalState = determineFinalState(formData, docState)
+      const now = new Date()
+      const fecha = `${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()}`
+      onSave({
+        id:            nextCode ?? 'CLI-NVO',
+        nombre,
+        tipo:          formData.tipoPersona,
+        tipoDoc:       formData.tipoDoc,
+        doi:           formData.numDoc,
+        riesgo:        formData.clasificacionRiesgo,
+        estado:        finalState.estado,
+        plaft:         formData.resultadoPLAFT,
+        registradoPor: 'Marco Quispe L.',
+        fecha,
+      })
+    }
+    setConfirmed(true)
   }
 
   return (
-    <div className="max-w-3xl mx-auto pb-8">
-      {/* Back link */}
-      <button onClick={onBack}
-        className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 transition-colors mb-5">
-        <ArrowLeft size={15} />
-        Volver a Clientes
+    <div className="max-w-4xl mx-auto pb-10">
+
+      {/* ── Volver — enlace simple, sin card ── */}
+      <button
+        onClick={onBack}
+        className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 font-medium mb-6 transition-colors"
+      >
+        <ArrowLeft size={16} /> Volver a Cartera de Clientes
       </button>
 
-      {/* Stepper */}
-      <div className="bg-white rounded-xl border border-gray-200 px-6 py-4 mb-4">
-        <StepIndicator currentStep={step} />
+      {/* Stepper indicator */}
+      {!confirmed && (
+        <div className="bg-white rounded-2xl border border-gray-100 px-6 py-5 mb-6 shadow-sm">
+          <StepIndicator currentStep={step} />
+        </div>
+      )}
+
+      {/* Main Form Content */}
+      <div className={clsx('bg-white rounded-2xl border border-gray-100 p-8 shadow-sm mb-6', confirmed && 'text-center')}>
+        <div className="mb-8">
+          {step === 1 && <Step1 formData={formData} onChange={handleChange} errors={errors} />}
+          {step === 2 && <Step2 formData={formData} onChange={handleChange} errors={errors} />}
+          {step === 3 && (
+            <Step3
+              formData={formData}
+              docState={docState}
+              onUpload={handleUpload}
+              onRemove={handleRemoveDoc}
+              errors={errors}
+            />
+          )}
+          {step === 4 && <Step4 formData={formData} onChange={handleChange} errors={errors} />}
+          {step === 5 && (
+            <Step5
+              formData={formData}
+              docState={docState}
+              onConfirmar={handleConfirmar}
+              confirmed={confirmed}
+              newCode={nextCode}
+            />
+          )}
+        </div>
       </div>
 
-      {/* Content */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6 mb-4">
-        {step === 1 && <Step1 formData={formData} onChange={handleChange} />}
-        {step === 2 && <Step2 formData={formData} onChange={handleChange} errors={errors} />}
-        {step === 3 && <Step3 formData={formData} docState={docState} onUpload={handleUpload} onRemove={handleRemoveDoc} errors={errors} />}
-        {step === 4 && <Step4 formData={formData} onChange={handleChange} errors={errors} />}
-        {step === 5 && <Step5 formData={formData} docState={docState} onConfirmar={() => setConfirmed(true)} confirmed={confirmed} newCode="CLI-009" />}
-      </div>
-
-      {/* Navigation */}
-      {!confirmed ? (
-        <div className="flex items-center justify-between">
-          <button onClick={step === 1 ? onBack : handleBack}
-            className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-all">
-            <ArrowLeft size={14} />
-            {step === 1 ? 'Cancelar' : 'Anterior'}
+      {/* ── Footer de navegación ── */}
+      {!confirmed && (
+        <div className="bg-white rounded-2xl border border-gray-100 px-6 py-4 shadow-sm flex items-center justify-between">
+          <button
+            onClick={step === 1 ? onBack : handleBack}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-all active:scale-95"
+          >
+            <ArrowLeft size={15} /> {step === 1 ? 'Cancelar' : 'Anterior'}
           </button>
+
           {step < 5 && (
-            <button onClick={handleNext}
-              disabled={step === 1 && !formData.tipoPersona}
-              className={clsx(
-                'flex items-center gap-1.5 px-5 py-2.5 text-sm font-semibold rounded-xl transition-all',
-                step === 1 && !formData.tipoPersona
-                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'
-              )}>
-              Siguiente <ChevronRight size={14} />
+            <button
+              onClick={handleNext}
+              className="flex items-center gap-1.5 px-6 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 shadow-sm transition-all active:scale-95"
+            >
+              Siguiente <ChevronRight size={15} />
+            </button>
+          )}
+
+          {step === 5 && (
+            <button
+              onClick={handleConfirmar}
+              className="flex items-center gap-1.5 px-6 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 shadow-sm transition-all active:scale-95"
+            >
+              Confirmar alta del cliente <ChevronRight size={15} />
             </button>
           )}
         </div>
-      ) : (
+      )}
+
+      {/* Final step action */}
+      {confirmed && (
         <div className="flex justify-center">
-          <button onClick={onBack}
-            className="flex items-center gap-1.5 px-5 py-2.5 text-sm font-semibold text-blue-600 bg-blue-50 border border-blue-200 rounded-xl hover:bg-blue-100 transition-all">
-            <ArrowLeft size={14} />
-            Volver a Cartera de clientes
+          <button
+            onClick={onBack}
+            className="flex items-center gap-2 px-8 py-3 bg-gray-900 text-white text-sm font-bold rounded-2xl hover:bg-gray-800 transition-all active:scale-95 shadow-lg shadow-gray-200"
+          >
+            <ArrowLeft size={16} /> Volver a la Cartera de Clientes
           </button>
         </div>
       )}

@@ -14,6 +14,7 @@ export default function Login({ onLogin }) {
     'trader@qapaq.com.pe':  { password: 'qapaq2026',  role: 'trader',   name: 'Carlos Medina' },
     'middle@qapaq.com.pe':  { password: 'qapaq2026',  role: 'middle',   name: 'Marco Quispe' },
     'back@qapaq.com.pe':    { password: 'qapaq2026',  role: 'back',     name: 'Ana Torres' },
+    'tesoreria@qapaq.com.pe': { password: 'qapaq2026', role: 'tesoreria', name: 'Alfonso Reyes' },
   }
 
   function handleSubmit(e) {
@@ -200,6 +201,7 @@ export default function Login({ onLogin }) {
               { email: 'admin@qapaq.com.pe',  pass: 'admin2026', label: 'Administrador' },
               { email: 'trader@qapaq.com.pe', pass: 'qapaq2026', label: 'Trader' },
               { email: 'middle@qapaq.com.pe', pass: 'qapaq2026', label: 'Middle Office' },
+              { email: 'tesoreria@qapaq.com.pe', pass: 'qapaq2026', label: 'Tesorería' },
             ].map(u => (
               <div key={u.email} className="flex items-center justify-between">
                 <span className="text-[11px] text-amber-600">{u.label}</span>

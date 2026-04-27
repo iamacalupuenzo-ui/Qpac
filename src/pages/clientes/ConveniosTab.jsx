@@ -307,11 +307,11 @@ function FileUploadField({ value, onChange, error }) {
         )}>
         <Upload size={13} className={clsx('shrink-0', value ? 'text-green-500' : 'text-gray-400')} />
         <span className={clsx('text-sm truncate flex-1', value ? 'text-gray-700' : 'text-gray-400')}>
-          {value || 'Seleccionar archivo PDF...'}
+          {value || 'Seleccionar archivo PDF o imagen...'}
         </span>
         {value && <Check size={12} className="text-green-500 shrink-0" />}
       </div>
-      <input ref={ref} type="file" accept=".pdf" className="hidden"
+      <input ref={ref} type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden"
         onChange={e => { if (e.target.files?.[0]) onChange(e.target.files[0].name) }} />
       {error && <p className="text-[11px] text-red-500 mt-1">{error}</p>}
     </div>
@@ -495,9 +495,6 @@ function DetailDrawer({ open, doc: d, onClose }) {
                   {d.fechaVencimiento ? (
                     <div>
                       <span className={clsx(days !== null && days < 0 ? 'text-red-600 font-medium' : '')}>{d.fechaVencimiento}</span>
-                      {days !== null && days >= 0 && days < 5 && (
-                        <span className="block text-[10px] text-amber-600 font-semibold mt-0.5">AL-GC-09 · vence en {days}d</span>
-                      )}
                       {days !== null && days < 0 && (
                         <span className="block text-[10px] text-red-500 mt-0.5">Vencido hace {Math.abs(days)}d</span>
                       )}
@@ -750,16 +747,17 @@ function DocDrawer({ open, onClose, onSave, fixedClienteId, editDoc = null }) {
                 className={inputCls(errors.fechaFirma)} />
             </Field>
 
-            <Field
-              label="Fecha de vencimiento"
-              required={form.tipoDoc === 'vigencia_poderes'}
-              hint={form.tipoDoc !== 'vigencia_poderes' ? 'Opcional para este tipo.' : undefined}
-              error={errors.fechaVencimiento}
-            >
-              <input type="date" min={form.fechaFirma || undefined} value={form.fechaVencimiento}
-                onChange={e => set('fechaVencimiento', e.target.value)}
-                className={inputCls(errors.fechaVencimiento)} />
-            </Field>
+            {form.tipoDoc === 'vigencia_poderes' && (
+              <Field
+                label="Fecha de vencimiento"
+                required
+                error={errors.fechaVencimiento}
+              >
+                <input type="date" min={form.fechaFirma || undefined} value={form.fechaVencimiento}
+                  onChange={e => set('fechaVencimiento', e.target.value)}
+                  className={inputCls(errors.fechaVencimiento)} />
+              </Field>
+            )}
           </div>
 
           {/* Días contador — solo Vigencia de Poderes */}

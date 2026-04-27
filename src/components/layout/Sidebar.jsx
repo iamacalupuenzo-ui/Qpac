@@ -13,10 +13,24 @@ const navByRole = {
       { icon: LayoutDashboard,   label: 'Panel Admin',      id: 'dashboard'   },
       { icon: UserCog,           label: 'Usuarios y Roles', id: 'usuarios'    },
       { icon: Building2,         label: 'Clientes',         id: 'clientes'    },
+      { icon: TrendingUp,        label: 'Mercado TC',       id: 'mercado'     },
       { icon: ArrowLeftRight,    label: 'Operaciones',      id: 'operaciones' },
+      { icon: TrendingUp,        label: 'Posición FX',      id: 'posicion'    },
+      { icon: FileText,          label: 'Reportes',         id: 'reportes'    },
       { icon: Database,          label: 'Catálogos',        id: 'catalogos'   },
       { icon: SlidersHorizontal, label: 'Parámetros',       id: 'parametros'  },
       { icon: ClipboardList,     label: 'Auditoría',        id: 'auditoria'   },
+    ],
+    bottom: [
+      { icon: Settings, label: 'Configuración', id: 'settings' },
+    ],
+  },
+  tesoreria: {
+    main: [
+      { icon: LayoutDashboard, label: 'Dashboard',   id: 'dashboard' },
+      { icon: TrendingUp,      label: 'Mercado TC',  id: 'mercado'   },
+      { icon: ArrowLeftRight,  label: 'Operaciones', id: 'operaciones' },
+      { icon: FileText,        label: 'Reportes',    id: 'reportes'    },
     ],
     bottom: [
       { icon: Settings, label: 'Configuración', id: 'settings' },

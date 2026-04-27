@@ -1,68 +1,85 @@
-import { useState } from 'react'
-import { CheckCircle2, XCircle, AlertTriangle, Info, X } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { CheckCircle2, XCircle, Info, AlertTriangle, X } from 'lucide-react'
 import clsx from 'clsx'
 
-const CONF = {
-  success: { Icon: CheckCircle2, iconCls: 'text-green-500' },
-  error:   { Icon: XCircle,      iconCls: 'text-red-500'   },
-  warning: { Icon: AlertTriangle,iconCls: 'text-amber-500' },
-  info:    { Icon: Info,         iconCls: 'text-blue-500'  },
-}
+export default function Toast({ message, type = 'success', onClose }) {
+  useEffect(() => {
+    const timer = setTimeout(onClose, 5000)
+    return () => clearTimeout(timer)
+  }, [onClose])
 
-/* ── Hook ── */
-export function useToast() {
-  const [toasts, setToasts] = useState([])
-
-  function add({ message, title, type = 'success', duration = 3500 }) {
-    const id = Date.now() + Math.random()
-    setToasts(ts => [...ts, { id, message, title, type }])
-    if (duration > 0) {
-      setTimeout(() => remove(id), duration)
-    }
+  const icons = {
+    success: <CheckCircle2 size={18} className="text-green-500" />,
+    error:   <XCircle size={18} className="text-red-500" />,
+    info:    <Info size={18} className="text-blue-500" />,
+    warning: <AlertTriangle size={18} className="text-amber-500" />,
   }
 
-  function remove(id) {
-    setToasts(ts => ts.filter(t => t.id !== id))
+  const bgColors = {
+    success: 'bg-green-50 border-green-200',
+    error:   'bg-red-50 border-red-200',
+    info:    'bg-blue-50 border-blue-200',
+    warning: 'bg-amber-50 border-amber-200',
   }
 
-  return { toasts, add, remove }
-}
-
-/* ── Container ── */
-export function ToastContainer({ toasts, onRemove }) {
-  if (!toasts.length) return null
   return (
-    <div className="fixed bottom-5 right-5 z-[200] flex flex-col gap-2 pointer-events-none">
-      {toasts.map(t => (
-        <ToastItem key={t.id} toast={t} onRemove={onRemove} />
-      ))}
+    <div className={clsx(
+      "fixed top-6 right-6 z-[200] flex items-start gap-3 px-5 py-4 rounded-xl border shadow-xl animate-in slide-in-from-right-10 duration-300",
+      bgColors[type]
+    )}>
+      <div className="mt-0.5">{icons[type]}</div>
+      <div>
+         {/* If a title is passed, show it, otherwise omit it */}
+         <p className="text-sm font-bold text-gray-800">{message}</p>
+      </div>
+      <button 
+        onClick={onClose}
+        className="ml-4 p-1 rounded-lg transition-colors text-gray-500 hover:bg-black/5"
+      >
+        <X size={16} />
+      </button>
     </div>
   )
 }
 
-function ToastItem({ toast, onRemove }) {
-  const { Icon, iconCls } = CONF[toast.type] ?? CONF.success
+export function useToast() {
+  const [toasts, setToasts] = useState([])
+  const add = (toastPrm) => {
+    setToasts(prev => [...prev, { ...toastPrm, id: Date.now() + Math.random() }])
+  }
+  const remove = (id) => {
+    setToasts(prev => prev.filter(t => t.id !== id))
+  }
+  return { toasts, add, remove }
+}
+
+export function ToastContainer({ toasts, onRemove }) {
+  if (!toasts || toasts.length === 0) return null
   return (
-    <div
-      className="flex items-start gap-3 px-4 py-3 rounded-xl bg-white border pointer-events-auto w-72"
-      style={{
-        border: '1px solid var(--color-border)',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.10)',
-      }}
-    >
-      <Icon size={16} className={clsx(iconCls, 'shrink-0 mt-0.5')} />
-      <div className="flex-1 min-w-0">
-        {toast.title && (
-          <p className="text-xs font-semibold text-gray-800 leading-snug">{toast.title}</p>
-        )}
-        <p className={clsx('text-xs text-gray-500', toast.title && 'mt-0.5')}>{toast.message}</p>
-      </div>
-      <button
-        onClick={() => onRemove(toast.id)}
-        className="text-gray-300 hover:text-gray-500 transition-colors shrink-0 mt-0.5"
-      >
-        <X size={13} />
-      </button>
+    <div className="fixed top-6 right-6 z-[300] flex flex-col gap-2">
+       {toasts.map(t => (
+          <div key={t.id} className={clsx(
+            "flex items-start gap-3 px-5 py-4 rounded-xl border shadow-lg bg-white",
+            t.type === 'success' && 'border-green-200 bg-green-50',
+            t.type === 'error' && 'border-red-200 bg-red-50',
+            t.type === 'info' && 'border-blue-200 bg-blue-50',
+            t.type === 'warning' && 'border-amber-200 bg-amber-50',
+          )}>
+            <div className="mt-0.5">
+               {t.type === 'success' ? <CheckCircle2 size={18} className="text-green-500" /> : null}
+               {t.type === 'error' ? <XCircle size={18} className="text-red-500" /> : null}
+               {t.type === 'info' ? <Info size={18} className="text-blue-500" /> : null}
+               {t.type === 'warning' ? <AlertTriangle size={18} className="text-amber-500" /> : null}
+            </div>
+            <div>
+               {t.title && <p className="text-sm font-bold text-gray-900">{t.title}</p>}
+               <p className="text-xs text-gray-700 mt-0.5 min-w-[200px]">{t.message}</p>
+            </div>
+            <button onClick={() => onRemove(t.id)} className="ml-4 p-1 hover:bg-black/5 rounded-lg text-gray-400 hover:text-gray-600 transition-colors">
+               <X size={14} />
+            </button>
+          </div>
+       ))}
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import {
   Search, Plus, Building2, User, Briefcase, Shield,
   ChevronLeft, ChevronRight, Eye, Ban, AlertTriangle,
@@ -12,16 +12,6 @@ import ArbolTraderGlobalTab from './ArbolTraderGlobalTab'
 /* ═══════════════════════════════════════════════
    MOCK DATA
 ═══════════════════════════════════════════════ */
-const MOCK_CLIENTES = [
-  { id: 'CLI-001', nombre: 'María González Paredes',        tipo: 'PN',  tipoDoc: 'DNI', doi: '43210987',    riesgo: 'estandar', estado: 'activo',          plaft: 'conforme',   registradoPor: 'Marco Quispe L.', fecha: '15/01/2026' },
-  { id: 'CLI-002', nombre: 'Exportaciones Lima S.A.C.',     tipo: 'PJ',  tipoDoc: 'RUC', doi: '20512345678', riesgo: 'estandar', estado: 'activo',          plaft: 'conforme',   registradoPor: 'Marco Quispe L.', fecha: '20/01/2026' },
-  { id: 'CLI-003', nombre: 'Banco Americano del Perú S.A.', tipo: 'EF',  tipoDoc: 'RUC', doi: '20123456789', riesgo: 'rf',       estado: 'activo',          plaft: 'conforme',   registradoPor: 'Marco Quispe L.', fecha: '05/02/2026' },
-  { id: 'CLI-004', nombre: 'Roberto Sánchez Vidal',         tipo: 'P10', tipoDoc: 'DNI', doi: '38765432',    riesgo: 'estandar', estado: 'activo_proceso',  plaft: 'en_proceso', registradoPor: 'Marco Quispe L.', fecha: '01/03/2026', docsPendientes: 2 },
-  { id: 'CLI-005', nombre: 'Inversiones Pacífico S.R.L.',   tipo: 'PJ',  tipoDoc: 'RUC', doi: '20987654321', riesgo: 'rf',       estado: 'pendiente_legal', plaft: 'conforme',   registradoPor: 'Marco Quispe L.', fecha: '10/03/2026' },
-  { id: 'CLI-006', nombre: 'Carmen Rivas Huanca',           tipo: 'PN',  tipoDoc: 'DNI', doi: '52109876',    riesgo: 'estandar', estado: 'no_habilitado',   plaft: 'conforme',   registradoPor: 'Marco Quispe L.', fecha: '12/02/2026' },
-  { id: 'CLI-007', nombre: 'Minera Andina S.A.',            tipo: 'PJ',  tipoDoc: 'RUC', doi: '20345678901', riesgo: 'estandar', estado: 'activo',          plaft: 'conforme',   registradoPor: 'Marco Quispe L.', fecha: '25/02/2026' },
-  { id: 'CLI-008', nombre: 'James Wilson Carter',           tipo: 'PN',  tipoDoc: 'CE',  doi: 'CE001234',    riesgo: 'rf',       estado: 'activo',          plaft: 'conforme',   registradoPor: 'Marco Quispe L.', fecha: '08/03/2026' },
-]
 
 /* ═══════════════════════════════════════════════
    BADGES
@@ -124,18 +114,21 @@ function FilterSelect({ value, onChange, options, placeholder }) {
 ═══════════════════════════════════════════════ */
 const PAGE_SIZE = 6
 
-export default function ClientesPage({ onNuevoCliente, onVerCliente, activeTab }) {
-  if (activeTab === 'cuentas_bancarias') return <CuentasBancariasTab />
-  if (activeTab === 'convenios')         return <ConveniosTab />
-  if (activeTab === 'arbol_trader')      return <ArbolTraderGlobalTab onVerCliente={onVerCliente} />
-  const [clientes,     setClientes]     = useState(MOCK_CLIENTES)
+function parseFecha(str) {
+  if (!str) return new Date(0)
+  const [d, m, y] = str.split('/')
+  return new Date(+y, +m - 1, +d)
+}
+
+export default function ClientesPage({ onNuevoCliente, onVerCliente, activeTab, clientes, setClientes }) {
   const [search,       setSearch]       = useState('')
   const [filterTipo,   setFilterTipo]   = useState('')
   const [filterEstado, setFilterEstado] = useState('')
   const [dateFrom,     setDateFrom]     = useState('')
   const [dateTo,       setDateTo]       = useState('')
   const [page,         setPage]         = useState(1)
-  const [confirmInhabilitar, setConfirmInhabilitar] = useState(null) // cliente | null
+  const [confirmInhabilitar, setConfirmInhabilitar] = useState(null)
+
 
   function handleConfirmarInhabilitar() {
     if (!confirmInhabilitar) return
@@ -187,6 +180,10 @@ export default function ClientesPage({ onNuevoCliente, onVerCliente, activeTab }
 
   const activeFilters = [filterTipo, filterEstado, dateFrom, dateTo].filter(Boolean).length
   function clearFilters() { setFilterTipo(''); setFilterEstado(''); setDateFrom(''); setDateTo(''); resetPage() }
+
+  if (activeTab === 'cuentas_bancarias') return <CuentasBancariasTab />
+  if (activeTab === 'convenios')         return <ConveniosTab />
+  if (activeTab === 'arbol_trader')      return <ArbolTraderGlobalTab clientes={clientes} onVerCliente={onVerCliente} />
 
   return (
     <>

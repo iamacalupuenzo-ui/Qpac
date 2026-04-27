@@ -344,13 +344,25 @@ function AsignacionDrawer({ open, onClose, onSave, cliente, asignacionActual }) 
   const [errors,            setErrors]            = useState({})
 
   useEffect(() => {
-    if (open) { setTraderPrincipalId(''); setTradersBackup([]); setMotivo(''); setErrors({}) }
-  }, [open])
+    if (open) { 
+      if (asignacionActual) {
+        setTraderPrincipalId(asignacionActual.traderPrincipalId)
+        setTradersBackup(asignacionActual.tradersBackup || [])
+      } else {
+        setTraderPrincipalId('')
+        setTradersBackup([])
+      }
+      setMotivo('')
+      setErrors({}) 
+    }
+  }, [open, asignacionActual])
 
-  const traderPrincipalOpts = MOCK_TRADERS.map(t => {
-    const h = getHead(t.headId)
-    return { value: t.id, label: t.nombre, sub: h?.mesa ?? '' }
-  })
+  const traderPrincipalOpts = MOCK_TRADERS
+    .filter(t => !esReasignacion || t.id !== asignacionActual?.traderPrincipalId)
+    .map(t => {
+      const h = getHead(t.headId)
+      return { value: t.id, label: t.nombre, sub: h?.mesa ?? '' }
+    })
 
   const backupAddOpts = MOCK_TRADERS
     .filter(t => t.id !== traderPrincipalId && !tradersBackup.includes(t.id))
@@ -785,7 +797,7 @@ function ClienteRow({ cliente, asignacion, onAsignar, onReasignar, onVerFicha })
 /* ═══════════════════════════════════════════════
    MAIN EXPORT
 ═══════════════════════════════════════════════ */
-export default function ArbolTraderGlobalTab({ onVerCliente }) {
+export default function ArbolTraderGlobalTab({ onVerCliente, clientes = [] }) {
   const [asignaciones, setAsignaciones] = useState(ASIG_INIT)
   const [historialMap, setHistorialMap] = useState(HIST_GLOBAL_INIT)
   const [drawerData,   setDrawerData]   = useState(null) // { cliente, asignacion }
@@ -797,12 +809,12 @@ export default function ArbolTraderGlobalTab({ onVerCliente }) {
 
   /* Stats */
   const asignadosCount   = Object.keys(asignaciones).length
-  const sinAsignarCount  = MOCK_CLIENTES.length - asignadosCount
+  const sinAsignarCount  = clientes.length - asignadosCount
   const conBackupCount   = Object.values(asignaciones).filter(a => a.tradersBackup?.length > 0).length
 
   /* Filters */
   const q = search.trim().toLowerCase()
-  const filtered = MOCK_CLIENTES.filter(c => {
+  const filtered = clientes.filter(c => {
     if (q && !c.nombre.toLowerCase().includes(q) && !c.id.toLowerCase().includes(q)) return false
     const asig = asignaciones[c.id] ?? null
     if (filterEstado === 'asignado'    && !asig) return false
@@ -862,7 +874,7 @@ export default function ArbolTraderGlobalTab({ onVerCliente }) {
         {/* Stats */}
         <div className="grid grid-cols-4 gap-3">
           {[
-            { label: 'Total clientes',      value: MOCK_CLIENTES.length, color: 'text-gray-900'   },
+            { label: 'Total clientes',      value: clientes.length,      color: 'text-gray-900'   },
             { label: 'Con Trader asignado', value: asignadosCount,       color: 'text-green-600'  },
             { label: 'Sin asignar',         value: sinAsignarCount,      color: 'text-amber-600'  },
             { label: 'Con Trader backup',   value: conBackupCount,       color: 'text-teal-600'   },

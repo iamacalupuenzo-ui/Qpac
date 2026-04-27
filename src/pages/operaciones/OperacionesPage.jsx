@@ -1,10 +1,15 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import {
   Search, X, AlertTriangle, ChevronDown, Check,
-  Eye, Info, Ban, ArrowDownLeft, ArrowUpRight, Clock, Filter, Plus, Pencil,
+  Eye, Info, Ban, ArrowDownLeft, ArrowUpRight, Clock, Filter, Plus, Pencil, ShieldCheck, Send,
+  ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import clsx from 'clsx'
 import CotizacionWizard from './CotizacionWizard'
+import ConfirmarAbonoWizard from './ConfirmarAbonoWizard'
+import SubsanacionWizard from './SubsanacionWizard'
+import RevisionBackOfficeWizard from './RevisionBackOfficeWizard'
+import ReaperturaDrawer from './ReaperturaDrawer'
 
 /* ═══════════════════════════════════════════════
    CATÁLOGO DE CAUSAS
@@ -24,8 +29,9 @@ const ESTADO_META = {
   observada:   { bg: 'bg-amber-50',  text: 'text-amber-700',  dot: 'bg-amber-500',  label: 'Observada',   anulable: true  },
   en_revision: { bg: 'bg-orange-50', text: 'text-orange-700', dot: 'bg-orange-500', label: 'En revisión', anulable: false },
   subsanada:   { bg: 'bg-teal-50',   text: 'text-teal-700',   dot: 'bg-teal-500',   label: 'Subsanada',   anulable: false },
-  liquidada:   { bg: 'bg-green-50',  text: 'text-green-700',  dot: 'bg-green-500',  label: 'Liquidada',   anulable: false },
-  anulada:     { bg: 'bg-gray-100',  text: 'text-gray-500',   dot: 'bg-gray-400',   label: 'Anulada',     anulable: false },
+  liquidada:          { bg: 'bg-green-50',  text: 'text-green-700',  dot: 'bg-green-500',  label: 'Liquidada',           anulable: false },
+  pendiente_reapertura: { bg: 'bg-violet-50', text: 'text-violet-700', dot: 'bg-violet-500', label: 'Pend. Reapertura',    anulable: false },
+  anulada:             { bg: 'bg-gray-100',  text: 'text-gray-500',   dot: 'bg-gray-400',   label: 'Anulada',             anulable: false },
 }
 
 /* ═══════════════════════════════════════════════
@@ -60,6 +66,7 @@ const MOCK_OPS_INIT = [
     clienteNombre: 'Empresa Industrial Inca S.A.C.',
     tipo: 'compra', montoUSD: 50_000, tc: 3.742, montoPEN: 187_100,
     estado: 'reservada', fecha: T, hora: '09:15',
+    tcRef: 3.739, tcFuente: 'Datatec',
     trader: 'Andrés Valdivia C.', mesa: 'Mesa Alpha',
     solAnulacion: null, historial: [],
     fechaAnulacion: null, horaAnulacion: null, anuladoPor: null, causaAnulacion: null,
@@ -69,6 +76,7 @@ const MOCK_OPS_INIT = [
     clienteNombre: 'Textiles del Sur E.I.R.L.',
     tipo: 'venta', montoUSD: 25_000, tc: 3.738, montoPEN: 93_450,
     estado: 'observada', fecha: T, hora: '10:30',
+    tcRef: 3.738, tcFuente: 'Datatec',
     trader: 'Karla Mendoza R.', mesa: 'Mesa Beta',
     solAnulacion: {
       causa: 'cliente_desiste',
@@ -84,6 +92,7 @@ const MOCK_OPS_INIT = [
     clienteNombre: 'Grupo Minero Los Andes S.A.',
     tipo: 'compra', montoUSD: 120_000, tc: 3.741, montoPEN: 448_920,
     estado: 'en_revision', fecha: T, hora: '08:50',
+    tcRef: 3.740, tcFuente: 'Datatec',
     trader: 'Rodrigo Paredes F.', mesa: 'Mesa Alpha',
     solAnulacion: null, historial: [],
     fechaAnulacion: null, horaAnulacion: null, anuladoPor: null, causaAnulacion: null,
@@ -93,6 +102,7 @@ const MOCK_OPS_INIT = [
     clienteNombre: 'Consorcio Lima Norte S.A.C.',
     tipo: 'venta', montoUSD: 15_000, tc: 3.739, montoPEN: 56_085,
     estado: 'subsanada', fecha: subDays(1), hora: '16:20',
+    tcRef: 3.742, tcFuente: 'Manual',
     trader: 'Sofía Ríos M.', mesa: 'Mesa Beta',
     solAnulacion: null, historial: [],
     fechaAnulacion: null, horaAnulacion: null, anuladoPor: null, causaAnulacion: null,
@@ -769,10 +779,10 @@ function EditarDrawer({ open, op, onClose, onGuardar }) {
    PERMISOS POR ROL
 ═══════════════════════════════════════════════ */
 const ANULACION_PERMS = {
-  admin:    { solicitar: true,  ejecutar: true  },
+  admin:    { solicitar: false, ejecutar: true  },
   trader:   { solicitar: true,  ejecutar: false },
-  middle:   { solicitar: true,  ejecutar: true  },
-  back:     { solicitar: false, ejecutar: true  },
+  middle:   { solicitar: false, ejecutar: true  },
+  back:     { solicitar: false, ejecutar: false },
   head:     { solicitar: true,  ejecutar: true  },
   jefe_op:  { solicitar: false, ejecutar: false },
   tesoreria:{ solicitar: false, ejecutar: false },
@@ -784,17 +794,19 @@ const ANULACION_PERMS = {
 /* ═══════════════════════════════════════════════
    MAIN PAGE
 ═══════════════════════════════════════════════ */
-const PAGE_SIZE = 10
-
-export default function OperacionesPage({ role = 'trader' }) {
-  const [view,         setView]         = useState('bandeja') // 'bandeja' | 'nueva'
-  const [ops,          setOps]          = useState(MOCK_OPS_INIT)
+export default function OperacionesPage({ role = 'trader', activeTab = 'bandeja', marketData, ops: opsProp, setOps: setOpsProp, onPreviewDoc, notify, setInWizard }) {
+  const [view,         setView]         = useState('bandeja')
+  const [opsLocal,     setOpsLocal]     = useState(MOCK_OPS_INIT)
+  // Use lifted state if provided, otherwise local
+  const ops    = opsProp    ?? opsLocal
+  const setOps = setOpsProp ?? setOpsLocal
   const [filtroEstado, setFiltroEstado] = useState('')
   const [filtroTipo,   setFiltroTipo]   = useState('')
   const [dateFrom,     setDateFrom]     = useState('')
   const [dateTo,       setDateTo]       = useState('')
   const [search,       setSearch]       = useState('')
   const [page,         setPage]         = useState(1)
+  const [pageSize,     setPageSize]     = useState(10)
 
   /* Drawers */
   const [solicitarOp, setSolicitarOp] = useState(null)
@@ -802,6 +814,24 @@ export default function OperacionesPage({ role = 'trader' }) {
   const [revisarOp,   setRevisarOp]   = useState(null)
   const [verOp,       setVerOp]       = useState(null)
   const [editOp,      setEditOp]      = useState(null)
+  const [envioOp,     setEnvioOp]     = useState(null)
+  const [subsanarOp,  setSubsanarOp]  = useState(null)
+  const [revisarBOOp, setRevisarBOOp] = useState(null)
+  const [revertirOp,  setRevertirOp]  = useState(null)   // RF-17 — solicitar reapertura
+  const [autorizarOp, setAutorizarOp] = useState(null)   // RF-17 — autorizar/rechazar reapertura
+
+  // Sincronizar estado global de wizard
+  useEffect(() => {
+    setInWizard?.(view !== 'bandeja')
+  }, [view, setInWizard])
+
+  // Resetear vista al cambiar de pestaña (sub-bandeja)
+  useEffect(() => {
+    setView('bandeja')
+    setEnvioOp(null)
+    setSubsanarOp(null)
+    setRevisarBOOp(null)
+  }, [activeTab])
 
   const perms        = ANULACION_PERMS[role] ?? { solicitar: false, ejecutar: false }
   const canSolicitar = perms.solicitar
@@ -817,6 +847,11 @@ export default function OperacionesPage({ role = 'trader' }) {
 
   const filtered = useMemo(() => {
     return ops.filter(o => {
+      // Filtro por pestaña activa
+      if (activeTab === 'pendientes_abono')     return o.estado === 'reservada'
+      if (activeTab === 'operaciones_observadas') return o.estado === 'observada'
+      if (activeTab === 'revision_back_office')  return o.estado === 'en_revision' || o.estado === 'subsanada'
+
       if (filtroEstado && o.estado !== filtroEstado) return false
       if (filtroTipo   && o.tipo   !== filtroTipo)   return false
       if (dateFrom && o.fecha < dateFrom)             return false
@@ -827,11 +862,11 @@ export default function OperacionesPage({ role = 'trader' }) {
       }
       return true
     })
-  }, [ops, filtroEstado, filtroTipo, dateFrom, dateTo, search])
+  }, [ops, activeTab, filtroEstado, filtroTipo, dateFrom, dateTo, search])
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const safePage   = Math.min(page, totalPages)
-  const paged      = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
+  const paged      = filtered.slice((safePage - 1) * pageSize, safePage * pageSize)
   const activeFilters = [filtroEstado, filtroTipo, dateFrom, dateTo].filter(Boolean).length
 
   function resetPage() { setPage(1) }
@@ -848,6 +883,7 @@ export default function OperacionesPage({ role = 'trader' }) {
       solAnulacion: sol,
       historial: [...(o.historial ?? []), { tipo: 'solicitud', por: sol.solicitadoPor, fecha: sol.fecha, hora: sol.hora, causa: sol.causa, detalle: sol.detalle }],
     } : o))
+    notify?.(`Solicitud de anulación para ${opId} enviada al Middle Office.`)
   }
 
   function handleAprobar(opId) {
@@ -901,19 +937,142 @@ export default function OperacionesPage({ role = 'trader' }) {
 
   function handleEditar(opId, changes) {
     setOps(prev => prev.map(o => o.id === opId ? { ...o, ...changes } : o))
+    notify?.(`Operación ${opId} actualizada.`)
+  }
+
+  function handleConfirmarAbono(id, data) {
+    setOps(prev => prev.map(o => o.id === id ? { 
+      ...o, 
+      estado: 'en_revision',
+      cuentaQpaqIn: data.ctaIngreso,
+      cuentaQpaqOut: data.ctaEgreso,
+      comprobantes: data.files,
+      enviadaBackOffice: new Date().toISOString()
+    } : o))
+    setView('bandeja')
+    setEnvioOp(null)
+    notify?.(`Operación ${id} enviada a Back Office para revisión.`)
   }
 
   function handleCreada(newOp) {
     setOps(prev => [newOp, ...prev])
+    notify?.(`Cotización ${newOp.id} registrada correctamente.`)
   }
+
+  function handleSubsanar(id, data) {
+    const { hora } = getNow()
+    setOps(prev => prev.map(o => o.id === id ? {
+      ...o,
+      estado: 'subsanada',
+      cuentaQpaqIn:  data.ctaIngreso,
+      cuentaQpaqOut: data.ctaEgreso,
+      comprobantes: [...(o.comprobantes ?? []), ...data.files],
+      historial: [...(o.historial ?? []), {
+        tipo: 'subsanacion', por: 'Trader',
+        fecha: T, hora, detalle: 'Operación subsanada y reenviada a Back Office.',
+      }],
+    } : o))
+    setView('bandeja')
+    setSubsanarOp(null)
+    notify?.(`Observaciones de la operación ${id} subsanadas.`)
+  }
+
+  function handleLiquidar(id, { refTransferencia, fechaLiquidacion }) {
+    const { hora } = getNow()
+    setOps(prev => prev.map(o => o.id === id ? {
+      ...o,
+      estado: 'liquidada',
+      refTransferencia,
+      fechaLiquidacion,
+      historial: [...(o.historial ?? []), {
+        tipo: 'liquidacion', por: 'Back Office',
+        fecha: T, hora, detalle: `Operación liquidada. Referencia bancaria: ${refTransferencia}.`,
+      }],
+    } : o))
+    setView('bandeja')
+    setRevisarBOOp(null)
+    notify?.(`Operación ${id} liquidada exitosamente.`)
+  }
+
+  function handleSolicitarReapertura(id, motivo) {
+    const { hora } = getNow()
+    setOps(prev => prev.map(o => o.id === id ? {
+      ...o,
+      estado: 'pendiente_reapertura',
+      solReapertura: { motivo, solicitadoPor: 'Back Office', fecha: T, hora },
+      historial: [...(o.historial ?? []), {
+        tipo: 'solicitud_reapertura', por: 'Back Office',
+        fecha: T, hora, detalle: motivo,
+      }],
+    } : o))
+    setRevertirOp(null)
+  }
+
+  function handleAprobarReapertura(id) {
+    const { hora } = getNow()
+    setOps(prev => prev.map(o => o.id === id ? {
+      ...o,
+      estado: 'en_revision',
+      solReapertura: null,
+      historial: [...(o.historial ?? []), {
+        tipo: 'reapertura_aprobada', por: 'Jefe de Operaciones',
+        fecha: T, hora, detalle: 'Reapertura autorizada. Operación devuelta a En revisión — Back Office.',
+      }],
+    } : o))
+    setAutorizarOp(null)
+  }
+
+  function handleRechazarReapertura(id, motivoRechazo) {
+    const { hora } = getNow()
+    setOps(prev => prev.map(o => o.id === id ? {
+      ...o,
+      estado: 'liquidada',
+      solReapertura: null,
+      historial: [...(o.historial ?? []), {
+        tipo: 'reapertura_rechazada', por: 'Jefe de Operaciones',
+        fecha: T, hora, detalle: `Reapertura rechazada. Motivo: ${motivoRechazo}`,
+      }],
+    } : o))
+    setAutorizarOp(null)
+  }
+
+  function handleBOObservar(id, texto) {
+    const { hora } = getNow()
+    setOps(prev => prev.map(o => o.id === id ? {
+      ...o,
+      estado: 'observada',
+      observadoPor: 'Back Office',
+      textoObservacion: texto,
+      fechaObservacion: `${T} ${hora}`,
+      historial: [...(o.historial ?? []), {
+        tipo: 'observacion', por: 'Back Office',
+        fecha: T, hora, detalle: texto,
+      }],
+    } : o))
+    setView('bandeja')
+    setRevisarBOOp(null)
+    setInWizard?.(false)
+  }
+
+  /* Vista: asistente confirmación abono */
+  if (view === 'confirmar_abono')
+    return <ConfirmarAbonoWizard op={envioOp} onBack={() => { setView('bandeja'); setEnvioOp(null); setInWizard?.(false) }} onConfirmar={(id, data) => { handleConfirmarAbono(id, data); setInWizard?.(false) }} onPreviewDoc={onPreviewDoc} />
+
+  /* Vista: subsanación de observación */
+  if (view === 'subsanar')
+    return <SubsanacionWizard op={subsanarOp} onBack={() => { setView('bandeja'); setSubsanarOp(null) }} onSubsanar={(id, data) => { handleSubsanar(id, data); setInWizard?.(false) }} onPreviewDoc={onPreviewDoc} />
+
+  /* Vista: revisión de Back Office */
+  if (view === 'revision_bo')
+    return <RevisionBackOfficeWizard op={revisarBOOp} onBack={() => { setView('bandeja'); setRevisarBOOp(null) }} onLiquidar={(id, data) => { handleLiquidar(id, data); setInWizard?.(false) }} onObservar={(id, txt) => { handleBOObservar(id, txt); setInWizard?.(false) }} onPreviewDoc={onPreviewDoc} notify={notify} />
 
   /* Vista: wizard nueva cotización */
   if (view === 'nueva')
-    return <CotizacionWizard onBack={() => setView('bandeja')} onCreada={handleCreada} />
+    return <CotizacionWizard onBack={() => { setView('bandeja'); setInWizard?.(false) }} onCreada={(data) => { handleCreada(data); setInWizard?.(false) }} marketData={marketData} />
 
   return (
     <>
-      {/* Banner solicitudes pendientes */}
+      {/* Banner solicitudes pendientes anulación */}
       {stats.pendientesAnulacion > 0 && (
         <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-amber-50 mb-4" style={{ border: '1px solid #fcd34d' }}>
           <Clock size={14} className="text-amber-500 shrink-0" />
@@ -921,6 +1080,25 @@ export default function OperacionesPage({ role = 'trader' }) {
             {stats.pendientesAnulacion} solicitud{stats.pendientesAnulacion > 1 ? 'es' : ''} de anulación
             pendiente{stats.pendientesAnulacion > 1 ? 's' : ''} de revisión por Middle Office.
           </p>
+        </div>
+      )}
+
+      {/* Banner solicitudes reapertura — solo head/jefe */}
+      {(role === 'head' || role === 'jefe' || role === 'admin') && ops.filter(o => o.estado === 'pendiente_reapertura').length > 0 && (
+        <div className="flex items-center justify-between px-4 py-3 rounded-lg bg-violet-50 mb-4" style={{ border: '1px solid #c4b5fd' }}>
+          <div className="flex items-center gap-3">
+            <Clock size={14} className="text-violet-500 shrink-0" />
+            <p className="text-xs text-violet-700 font-medium">
+              {ops.filter(o => o.estado === 'pendiente_reapertura').length} solicitud(es) de
+              reapertura pendiente(s) de autorización.
+            </p>
+          </div>
+          <button
+            onClick={() => setAutorizarOp(ops.find(o => o.estado === 'pendiente_reapertura'))}
+            className="text-[11px] font-semibold text-violet-700 px-3 py-1.5 rounded-lg bg-violet-100 hover:bg-violet-200 transition-colors"
+          >
+            Revisar
+          </button>
         </div>
       )}
 
@@ -1028,7 +1206,7 @@ export default function OperacionesPage({ role = 'trader' }) {
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr style={{ background: 'var(--color-surface-bg)', borderBottom: '1px solid var(--color-border)' }}>
-              {['Correlativo', 'Fecha / Hora', 'Cliente', 'Tipo', 'Monto USD', 'TC', 'Monto PEN', 'Estado', 'Acciones'].map(h => (
+              {['Correlativo', 'Fecha / Hora', 'Cliente', 'Tipo', 'Monto USD', 'TC', 'Ref / Fuente', 'Estado', 'Acciones'].map(h => (
                 <th key={h} className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 whitespace-nowrap">{h}</th>
               ))}
             </tr>
@@ -1083,12 +1261,14 @@ export default function OperacionesPage({ role = 'trader' }) {
                     {fmtMoney(op.montoUSD)}
                   </td>
 
-                  <td className="px-4 py-3 text-xs text-gray-600 font-mono whitespace-nowrap">
+                  <td className="px-4 py-3 text-xs text-gray-800 font-mono text-right">
                     {fmtTC(op.tc)}
                   </td>
-
-                  <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap text-right">
-                    {fmtMoney(op.montoPEN)}
+                  <td className="px-4 py-3">
+                    <p className="text-xs text-gray-800 font-mono">{fmtTC(op.tcRef ?? 0)}</p>
+                    <p className={clsx('text-[10px]', op.tcFuente === 'Manual' ? 'text-amber-600' : 'text-blue-500 font-bold uppercase opacity-60')}>
+                      {op.tcFuente ?? '—'}
+                    </p>
                   </td>
 
                   <td className="px-4 py-3"><EstadoBadge estado={op.estado} /></td>
@@ -1104,48 +1284,108 @@ export default function OperacionesPage({ role = 'trader' }) {
                         <Eye size={14} />
                       </button>
 
-                      {/* Editar — solo reservada/observada sin sol. pendiente */}
-                      {isEditable && (
-                        <button onClick={() => setEditOp(op)}
-                          className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
-                          title="Editar operación">
-                          <Pencil size={14} />
+                      {/* ACCIONES POR CONTEXTO DE PESTAÑA */}
+                      {activeTab === 'pendientes_abono' ? (
+                        <button
+                          onClick={() => { setEnvioOp(op); setView('confirmar_abono') }}
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-[11px] font-semibold hover:bg-blue-100 transition-colors"
+                        >
+                          <ShieldCheck size={12} /> Confirmar Abono
                         </button>
-                      )}
-
-                      {/* Separador visual si hay acciones de anulación */}
-                      {(isAnulable) && (
-                        <span className="w-px h-4 bg-gray-200 mx-0.5 shrink-0" />
-                      )}
-
-                      {/* Acciones de anulación */}
-                      {isAnulable && !hasSolicitud && (
+                      ) : activeTab === 'operaciones_observadas' ? (
+                        <button
+                          onClick={() => { setSubsanarOp(op); setView('subsanar') }}
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 text-[11px] font-semibold hover:bg-amber-100 transition-colors"
+                        >
+                          <ShieldCheck size={12} /> Subsanar
+                        </button>
+                      ) : activeTab === 'revision_back_office' ? (
+                        <button
+                          onClick={() => { setRevisarBOOp(op); setView('revision_bo') }}
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200 bg-gray-50 text-gray-700 text-[11px] font-semibold hover:bg-gray-100 transition-colors"
+                        >
+                          <Eye size={12} /> Revisar operación
+                        </button>
+                      ) : (op.estado === 'liquidada' && (role === 'back' || role === 'admin')) ? (
+                        <button
+                          onClick={() => setRevertirOp(op)}
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-violet-200 bg-violet-50 text-violet-700 text-[11px] font-semibold hover:bg-violet-100 transition-colors"
+                        >
+                          <span className="text-xs">↺</span> Solicitar reapertura
+                        </button>
+                      ) : (op.estado === 'pendiente_reapertura' && (role === 'head' || role === 'jefe' || role === 'admin')) ? (
+                        <button
+                          onClick={() => setAutorizarOp(op)}
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-violet-200 bg-violet-50 text-violet-700 text-[11px] font-semibold hover:bg-violet-100 transition-colors"
+                        >
+                          <span className="text-xs">✓</span> Autorizar reapertura
+                        </button>
+                      ) : (
+                        /* CASO GENERAL: Bandeja de Operaciones y otras */
                         <>
-                          {canSolicitar && (
-                            <button onClick={() => setSolicitarOp(op)}
-                              className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 transition-colors whitespace-nowrap">
-                              Solicitar anulación
+                          {/* Editar */}
+                          {isEditable && (
+                            <button onClick={() => setEditOp(op)}
+                              className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                              title="Editar operación">
+                              <Pencil size={14} />
                             </button>
                           )}
-                          {canEjecutar && (
-                            <button onClick={() => setAnularOp(op)}
-                              className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                              title="Anular operación">
-                              <Ban size={14} />
-                            </button>
+
+                          {/* Separador visual si hay acciones de anulación */}
+                          {(isEditable && isAnulable) && (
+                            <span className="w-px h-4 bg-gray-200 mx-0.5 shrink-0" />
+                          )}
+
+                          {/* Anulación: No solicitada */}
+                          {isAnulable && !hasSolicitud && (
+                            <div className="flex items-center gap-1">
+                              {canSolicitar && (
+                                <button onClick={() => setSolicitarOp(op)}
+                                  className="p-1.5 rounded-lg text-amber-600 hover:bg-amber-50 transition-colors"
+                                  title="Enviar solicitud de anulación">
+                                  <Send size={14} />
+                                </button>
+                              )}
+                              {canEjecutar && (
+                                <button onClick={() => setAnularOp(op)}
+                                  className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                                  title="Anular directamente">
+                                  <Ban size={14} />
+                                </button>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Anulación: Ya solicitada */}
+                          {isAnulable && hasSolicitud && (
+                            <div className="flex items-center gap-1">
+                              {/* Solo Middle Office o Head revisan solicitudes */}
+                              {(role === 'middle' || role === 'head' || role === 'admin') ? (
+                                <button onClick={() => setRevisarOp(op)}
+                                  className={clsx(
+                                    "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-semibold transition-colors",
+                                    role === 'admin'
+                                      ? "border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
+                                      : "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                                  )}>
+                                  <Clock size={11} /> {role === 'admin' ? 'Aprobar anulación' : 'Revisar'}
+                                </button>
+                              ) : (
+                                <span className="text-[11px] text-amber-600 font-medium flex items-center gap-1">
+                                   <Clock size={10} /> Solicitada
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          
+                          {/* Enviada (solo visual) si no es anulable ni editable */}
+                          {!isAnulable && !isEditable && op.estado === 'en_revision' && (
+                            <span className="text-[11px] text-gray-400 font-medium flex items-center gap-1 px-2">
+                               <Clock size={10} /> Enviada
+                            </span>
                           )}
                         </>
-                      )}
-
-                      {isAnulable && hasSolicitud && (
-                        canEjecutar
-                          ? <button onClick={() => setRevisarOp(op)}
-                              className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-300 transition-colors">
-                              <Clock size={10} /> Revisar
-                            </button>
-                          : <span className="text-[11px] text-amber-600 font-medium flex items-center gap-1">
-                              <Clock size={10} /> Enviada
-                            </span>
                       )}
                     </div>
                   </td>
@@ -1159,21 +1399,44 @@ export default function OperacionesPage({ role = 'trader' }) {
         {filtered.length > 0 && (
           <div className="flex items-center justify-between px-4 py-2.5"
             style={{ borderTop: '1px solid var(--color-border)' }}>
-            <p className="text-xs text-gray-400">
-              {filtered.length > PAGE_SIZE
-                ? <>Mostrando {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filtered.length)} de <span className="font-medium text-gray-700">{filtered.length}</span> operaciones</>
-                : <><span className="font-medium text-gray-700">{filtered.length}</span> operación{filtered.length !== 1 ? 'es' : ''}</>
-              }
-            </p>
-            {totalPages > 1 && (
-              <div className="flex items-center gap-1">
-                <PageBtn onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage === 1}>‹</PageBtn>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
-                  <PageBtn key={n} active={n === safePage} onClick={() => setPage(n)}>{n}</PageBtn>
-                ))}
-                <PageBtn onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}>›</PageBtn>
-              </div>
-            )}
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              <span>Mostrar</span>
+              <FilterSelect
+                value={String(pageSize)}
+                onChange={v => { setPageSize(Number(v)); resetPage() }}
+                placeholder=""
+                options={[5, 10, 25, 50].map(n => ({ value: String(n), label: String(n) }))}
+              />
+              <span>por página · <span className="font-medium text-gray-700">{filtered.length}</span> operación{filtered.length !== 1 ? 'es' : ''}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage === 1}
+                className="p-1.5 rounded-md text-gray-400 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                <ChevronLeft size={14} />
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(n => n === 1 || n === totalPages || Math.abs(n - safePage) <= 1)
+                .reduce((acc, n, idx, arr) => {
+                  if (idx > 0 && n - arr[idx - 1] > 1) acc.push('…')
+                  acc.push(n)
+                  return acc
+                }, [])
+                .map((n, idx) =>
+                  n === '…' ? (
+                    <span key={`e-${idx}`} className="px-1.5 text-xs text-gray-400">…</span>
+                  ) : (
+                    <button key={n} onClick={() => setPage(n)}
+                      className={clsx('min-w-[28px] h-7 px-1.5 rounded-md text-xs font-medium transition-colors',
+                        n === safePage ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100')}>
+                      {n}
+                    </button>
+                  )
+                )}
+              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}
+                className="p-1.5 rounded-md text-gray-400 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                <ChevronRight size={14} />
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -1184,18 +1447,29 @@ export default function OperacionesPage({ role = 'trader' }) {
       <RevisarDrawer      open={!!revisarOp}   op={revisarOp}  onClose={() => setRevisarOp(null)}    onAprobar={handleAprobar} onRechazar={handleRechazar} />
       <VerDetalleDrawer open={!!verOp}  op={verOp}  onClose={() => setVerOp(null)} />
       <EditarDrawer     open={!!editOp} op={editOp} onClose={() => setEditOp(null)} onGuardar={handleEditar} />
+
+      {/* RF-17 — Drawer de Reapertura (solicitar) */}
+      {revertirOp && (
+        <ReaperturaDrawer
+          op={revertirOp} modo="solicitar" role={role}
+          onSolicitar={handleSolicitarReapertura}
+          onAprobar={handleAprobarReapertura}
+          onRechazar={handleRechazarReapertura}
+          onClose={() => setRevertirOp(null)}
+        />
+      )}
+
+      {/* RF-17 — Drawer de Reapertura (autorizar) */}
+      {autorizarOp && (
+        <ReaperturaDrawer
+          op={autorizarOp} modo="autorizar" role={role}
+          onSolicitar={handleSolicitarReapertura}
+          onAprobar={handleAprobarReapertura}
+          onRechazar={handleRechazarReapertura}
+          onClose={() => setAutorizarOp(null)}
+        />
+      )}
     </>
   )
 }
 
-function PageBtn({ onClick, disabled, active, children }) {
-  return (
-    <button onClick={onClick} disabled={disabled}
-      className={clsx('w-7 h-7 flex items-center justify-center rounded text-xs transition-all',
-        active   ? 'bg-blue-600 text-white font-semibold' :
-        disabled ? 'text-gray-300 cursor-not-allowed' :
-                   'text-gray-500 hover:bg-gray-100')}>
-      {children}
-    </button>
-  )
-}

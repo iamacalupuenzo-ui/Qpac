@@ -50,7 +50,7 @@ const CUENTAS_QAPAQ = {
   ],
 }
 
-const TC_DATATEC = { compra: 3.739, venta: 3.744 }
+const TC_SBS     = { compra: 3.735, venta: 3.740 }
 
 /* ═══════════════════════════════════════════════
    HELPERS
@@ -304,25 +304,34 @@ function Step1({ formData, onChange, errors }) {
 /* ═══════════════════════════════════════════════
    STEP 2 — DATOS DE LA OPERACIÓN
 ═══════════════════════════════════════════════ */
-function Step2({ formData, onChange, errors }) {
+function Step2({ formData, onChange, errors, marketData }) {
+  const { datatec, pizarra, status, mode } = marketData
+  
+  // Determinamos si el mercado está en horario de pizarra (> 13:33)
+  const nowTime = new Date()
+  const isPostCutoff = (nowTime.getHours() > 13) || (nowTime.getHours() === 13 && nowTime.getMinutes() >= 33)
+  const currentMode = isPostCutoff ? 'manual' : mode // Se impone manual si pasó la hora
   const tipoOp    = formData.tipoOp    ?? ''
   const monto     = formData.monto     ?? ''
   const fuenteTC  = formData.fuenteTC  ?? 'datatec'
   const tcPunta   = formData.tcPunta   ?? ''
   const tcPactado = formData.tcPactado ?? ''
 
-  const spread = tcPactado && tcPunta && !isNaN(+tcPactado) && !isNaN(+tcPunta)
-    ? (+tcPactado - +tcPunta).toFixed(4) : null
+  const sbsRate = tipoOp ? TC_SBS[tipoOp] : null
+  const spread  = tcPactado && sbsRate && !isNaN(+tcPactado)
+    ? (+tcPactado - +sbsRate).toFixed(4) : null
   const contravalor = monto && tcPactado && !isNaN(+monto) && !isNaN(+tcPactado) && tipoOp
     ? tipoOp === 'compra' ? +monto * +tcPactado : +monto / +tcPactado : null
-  const spreadAlert = spread !== null && Math.abs(+spread) > 0.01
+  const spreadAlert = tcPactado && sbsRate && Math.abs(+tcPactado - +sbsRate) > 0.03
 
   useEffect(() => {
     if (fuenteTC === 'datatec' && tipoOp) {
-      onChange('tcPunta', String(tipoOp === 'compra' ? TC_DATATEC.compra : TC_DATATEC.venta))
+      const refB = currentMode === 'manual' ? pizarra.compra : datatec.compra
+      const refV = currentMode === 'manual' ? pizarra.venta  : datatec.venta
+      onChange('tcPunta', String(tipoOp === 'compra' ? refB : refV))
     }
     if (fuenteTC === 'manual') onChange('tcPunta', '')
-  }, [fuenteTC, tipoOp])
+  }, [fuenteTC, tipoOp, datatec, pizarra, currentMode])
 
   return (
     <div className="space-y-5">
@@ -399,17 +408,33 @@ function Step2({ formData, onChange, errors }) {
               ]} />
           </Field>
 
-          <Field label="TC de referencia (punta)" required error={errors?.tcPunta}
-            hint={fuenteTC === 'datatec' && tipoOp ? `Datatec: compra ${TC_DATATEC.compra} / venta ${TC_DATATEC.venta}` : undefined}>
-            <input type="number" step="0.001" placeholder="0.000"
-              value={tcPunta} disabled={!tipoOp || fuenteTC === 'datatec'}
-              onChange={e => onChange('tcPunta', e.target.value)}
-              className={clsx(
-                'w-full px-3 py-2.5 rounded-lg border text-sm text-right font-mono outline-none transition-all',
-                !tipoOp || fuenteTC === 'datatec' ? 'bg-gray-50 text-gray-500 cursor-not-allowed border-gray-200'
-                  : errors?.tcPunta ? 'border-red-400 ring-2 ring-red-50'
-                  : 'border-gray-200 hover:border-gray-300 focus:border-blue-400 focus:ring-2 focus:ring-blue-50'
-              )} />
+          <Field label="TC de referencia (punta)" required error={errors?.tcPunta}>
+            <div className="relative">
+              <input type="number" step="0.001" placeholder="0.000"
+                value={tcPunta} disabled={!tipoOp || fuenteTC === 'datatec'}
+                onChange={e => onChange('tcPunta', e.target.value)}
+                className={clsx(
+                  'w-full px-3 py-2.5 rounded-lg border text-sm text-right font-mono outline-none transition-all',
+                  !tipoOp || fuenteTC === 'datatec' ? 'bg-gray-50 text-gray-500 cursor-not-allowed border-gray-200'
+                    : errors?.tcPunta ? 'border-red-400 ring-2 ring-red-50'
+                    : 'border-gray-200 hover:border-gray-300 focus:border-blue-400 focus:ring-2 focus:ring-blue-50'
+                )} />
+              {fuenteTC === 'datatec' && tipoOp && (
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 pointer-events-none">
+                  <div className={clsx('w-1.5 h-1.5 rounded-full', status === 'connected' && !isPostCutoff ? 'bg-green-500 animate-pulse' : 'bg-amber-500')} />
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">
+                    {isPostCutoff ? 'Pre-Pizarra' : status === 'connected' ? 'LIVE' : 'CACHÉ'}
+                  </span>
+                </div>
+              )}
+            </div>
+            {fuenteTC === 'datatec' && tipoOp && (
+              <p className="text-[10px] text-gray-400 mt-1 uppercase tracking-tight">
+                {isPostCutoff 
+                  ? `Ref. Pizarra: C ${pizarra.compra.toFixed(3)} / V ${pizarra.venta.toFixed(3)}` 
+                  : `Ref. Datatec: C ${datatec.compra.toFixed(3)} / V ${datatec.venta.toFixed(3)}`}
+              </p>
+            )}
           </Field>
 
           <Field label="TC pactado con el cliente" required error={errors?.tcPactado}>
@@ -572,7 +597,7 @@ function ResumenCard({ title, children }) {
   )
 }
 
-function Step4({ formData, onConfirmar, confirmed, correlativo }) {
+function Step4({ formData, onConfirmar, confirmed, correlativo, onBack }) {
   if (confirmed) {
     return (
       <div className="flex flex-col items-center py-10 text-center">
@@ -585,7 +610,13 @@ function Step4({ formData, onConfirmar, confirmed, correlativo }) {
           <p className="text-[11px] text-gray-400 uppercase tracking-wider mb-1">Correlativo asignado</p>
           <p className="text-2xl font-bold text-gray-900 tracking-tight font-mono">{correlativo}</p>
         </div>
-        <p className="text-xs text-gray-400 max-w-xs">La operación queda en estado <strong>Reservada</strong>. Puedes consultarla en la bandeja de operaciones.</p>
+        <p className="text-xs text-gray-400 max-w-xs mb-8">La operación queda en estado <strong>Reservada</strong>. Puedes consultarla en la bandeja de operaciones.</p>
+        <button
+          onClick={onBack}
+          className="px-8 py-3 rounded-xl bg-gray-900 text-white text-sm font-bold shadow-lg shadow-gray-200 hover:bg-black transition-all active:scale-95"
+        >
+          Volver a la bandeja
+        </button>
       </div>
     )
   }
@@ -698,7 +729,7 @@ const INITIAL_FORM = {
 /* ═══════════════════════════════════════════════
    MAIN WIZARD
 ═══════════════════════════════════════════════ */
-export default function CotizacionWizard({ onBack, onCreada }) {
+export default function CotizacionWizard({ onBack, onCreada, marketData }) {
   const [step,       setStep]       = useState(1)
   const [formData,   setFormData]   = useState(INITIAL_FORM)
   const [errors,     setErrors]     = useState({})
@@ -754,55 +785,77 @@ export default function CotizacionWizard({ onBack, onCreada }) {
   }
 
   return (
-    <div className="max-w-3xl mx-auto pb-8">
+    <div className="max-w-4xl mx-auto pb-10">
 
-      {/* Back link */}
-      <button onClick={onBack}
-        className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 transition-colors mb-5">
-        <ArrowLeft size={15} />
-        Volver a Bandeja de operaciones
+      {/* ── Volver — enlace simple, sin card ── */}
+      <button
+        onClick={onBack}
+        className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 font-medium mb-6 transition-colors"
+      >
+        <ArrowLeft size={16} /> Volver a Bandeja de Operaciones
       </button>
 
-      {/* Stepper */}
-      <div className="bg-white rounded-xl border border-gray-200 px-6 py-4 mb-4">
-        <StepIndicator currentStep={step} />
+      {/* Stepper indicator */}
+      {!confirmed && (
+        <div className="bg-white rounded-2xl border border-gray-100 px-6 py-5 mb-6 shadow-sm">
+          <StepIndicator currentStep={step} />
+        </div>
+      )}
+
+      {/* Main Form Content */}
+      <div className={clsx('bg-white rounded-2xl border border-gray-100 p-8 shadow-sm mb-6', confirmed && 'text-center')}>
+        <div className="mb-4">
+          {step === 1 && <Step1 formData={formData} onChange={handleChange} errors={errors} />}
+          {step === 2 && <Step2 formData={formData} onChange={handleChange} errors={errors} marketData={marketData} />}
+          {step === 3 && <Step3 formData={formData} onChange={handleChange} errors={errors} />}
+          {step === 4 && <Step4 formData={formData} onConfirmar={handleConfirmar} confirmed={confirmed} correlativo={correlativo} onBack={onBack} />}
+        </div>
       </div>
 
-      {/* Content */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6 mb-4">
-        {step === 1 && <Step1 formData={formData} onChange={handleChange} errors={errors} />}
-        {step === 2 && <Step2 formData={formData} onChange={handleChange} errors={errors} />}
-        {step === 3 && <Step3 formData={formData} onChange={handleChange} errors={errors} />}
-        {step === 4 && <Step4 formData={formData} onConfirmar={handleConfirmar} confirmed={confirmed} correlativo={correlativo} />}
-      </div>
-
-      {/* Navigation */}
-      {!confirmed ? (
-        <div className="flex items-center justify-between">
-          <button onClick={step === 1 ? onBack : handlePrev}
-            className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-all">
-            <ArrowLeft size={14} />
-            {step === 1 ? 'Cancelar' : 'Anterior'}
+      {/* ── Footer de navegación ── */}
+      {!confirmed && (
+        <div className="bg-white rounded-2xl border border-gray-100 px-6 py-4 shadow-sm flex items-center justify-between">
+          <button
+            onClick={step === 1 ? onBack : handlePrev}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-all active:scale-95"
+          >
+            <ArrowLeft size={15} /> {step === 1 ? 'Cancelar' : 'Anterior'}
           </button>
+
           {step < 4 && (
-            <button onClick={handleNext}
+            <button
+              onClick={handleNext}
               disabled={step === 1 && !formData.clienteResult}
               className={clsx(
-                'flex items-center gap-1.5 px-5 py-2.5 text-sm font-semibold rounded-xl transition-all',
+                'flex items-center gap-1.5 px-6 py-2 rounded-xl text-sm font-semibold shadow-sm transition-all active:scale-95',
                 step === 1 && !formData.clienteResult
-                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'
-              )}>
-              Siguiente <ChevronRight size={14} />
+                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                  : 'bg-blue-600 text-white hover:bg-blue-700'
+              )}
+            >
+              Siguiente <ChevronRight size={15} />
+            </button>
+          )}
+
+          {step === 4 && (
+            <button
+              onClick={handleConfirmar}
+              className="flex items-center gap-1.5 px-6 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 shadow-sm transition-all active:scale-95"
+            >
+              Confirmar cotización <ChevronRight size={15} />
             </button>
           )}
         </div>
-      ) : (
+      )}
+
+      {/* Final step action */}
+      {confirmed && (
         <div className="flex justify-center">
-          <button onClick={onBack}
-            className="flex items-center gap-1.5 px-5 py-2.5 text-sm font-semibold text-blue-600 bg-blue-50 border border-blue-200 rounded-xl hover:bg-blue-100 transition-all">
-            <ArrowLeft size={14} />
-            Volver a Bandeja de operaciones
+          <button
+            onClick={onBack}
+            className="flex items-center gap-2 px-8 py-3 bg-gray-900 text-white text-sm font-bold rounded-2xl hover:bg-gray-800 transition-all active:scale-95 shadow-lg shadow-gray-200"
+          >
+            <ArrowLeft size={16} /> Volver a Bandeja de Operaciones
           </button>
         </div>
       )}
