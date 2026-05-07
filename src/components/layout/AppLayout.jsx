@@ -6,6 +6,7 @@ export default function AppLayout({
   children, title = 'QAPAQ', tabs, role, userName, onLogout,
   activeNav: extNav,    onNavigate: extNavigate,
   activeTab: extTab,    onTabChange: extTabChange,
+  marketData, ops,
 }) {
   const [intNav, setIntNav] = useState('dashboard')
   const [intTab, setIntTab] = useState(tabs?.[0]?.id ?? null)
@@ -31,6 +32,8 @@ export default function AppLayout({
           role={role}
           userName={userName}
           onLogout={onLogout}
+          marketData={marketData}
+          ops={ops}
         />
 
         <main

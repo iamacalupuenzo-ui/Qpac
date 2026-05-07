@@ -21,7 +21,7 @@ const TIPOS = [
   { id: 'PN',  abbr: 'PN',  label: 'Persona Natural',             desc: 'Persona física sin actividad comercial registrada',                     Icon: User      },
   { id: 'P10', abbr: 'P10', label: 'Persona Natural con Negocio', desc: 'Persona natural con RUC activo y actividad económica declarada',         Icon: Briefcase },
   { id: 'PJ',  abbr: 'PJ',  label: 'Persona Jurídica',            desc: 'Empresa o sociedad con personería jurídica constituida',                 Icon: Building2 },
-  { id: 'EF',  abbr: 'EF',  label: 'Entidad Financiera',          desc: 'Banco, financiera, casa de cambio u otra entidad supervisada por SBS',  Icon: Shield    },
+  { id: 'EF',  abbr: 'EF',  label: 'Entidad Financiera',          desc: 'Banco, Financiera.',                                                   Icon: Shield    },
 ]
 
 /* ═══ Business logic helpers ═══════════════════ */
@@ -32,21 +32,21 @@ function getDocsRequeridos({ tipoPersona, esPEP, operaATerceros, clasificacionRi
 
   if (tipoPersona === 'PN' || tipoPersona === 'P10') {
     docs.push({ id: 'doiCliente',      label: 'DOI del cliente',                            req: true,  grupo: 'Base'     })
-    docs.push({ id: 'djOrigenFondos',  label: 'DJ Origen de Fondos (PN)',                   req: true,  grupo: 'Base'     })
+    docs.push({ id: 'djOrigenFondos',  label: 'DJ Origen de Fondos (PN)',                   req: esPEP !== 'si', grupo: 'Base' })
     if (esPEP === 'si') {
       docs.push({ id: 'djOrigenPEP', label: 'DJ Origen de Fondos PEP',                    req: true,  grupo: 'PEP'      })
       docs.push({ id: 'fichaPEP',    label: 'Ficha PEP',                                  req: true,  grupo: 'PEP'      })
     }
-    docs.push({ id: 'cartaTerceros',   label: 'Carta de Autorización Terceros',             req: false, grupo: 'Opcional' })
+    docs.push({ id: 'cartaTerceros',   label: 'Carta de Autorización Terceros',             req: false, grupo: 'Otros'    })
   }
 
   if (tipoPersona === 'PJ' || tipoPersona === 'EF') {
     docs.push({ id: 'fichaRUC',        label: 'Ficha RUC / Consulta RUC',                   req: true,  grupo: 'Base'     })
     docs.push({ id: 'autorizacionSBS', label: 'Autorización SBS (Casa de Cambio)',           req: true,  grupo: 'Base'     })
-    if (operaATerceros === 'si' || tipoPersona === 'EF') {
-      docs.push({ id: 'convenioMarco',     label: 'Convenio Marco de Operaciones',           req: true,  grupo: 'Legal'    })
-      docs.push({ id: 'vigenciaPoderes',   label: 'Vigencia de Poderes (máx. 30 días)',      req: true,  grupo: 'Legal'    })
-      docs.push({ id: 'doiRepresentantes', label: 'DOI Representantes Legales',              req: true,  grupo: 'Legal'    })
+    if (tipoPersona === 'EF') {
+      docs.push({ id: 'convenioMarco',     label: 'Convenio Marco de Operaciones',           req: false, grupo: 'Opcional' })
+      docs.push({ id: 'vigenciaPoderes',   label: 'Vigencia de Poderes',                     req: false, grupo: 'Opcional' })
+      docs.push({ id: 'doiRepresentantes', label: 'DOI Representantes Legales',              req: false, grupo: 'Opcional' })
     }
   }
 
@@ -60,11 +60,6 @@ function getDocsRequeridos({ tipoPersona, esPEP, operaATerceros, clasificacionRi
 
 function determineFinalState(formData, docState) {
   const docs = getDocsRequeridos(formData)
-  const needsLegal = (formData.tipoPersona === 'PJ' && formData.operaATerceros === 'si') || formData.tipoPersona === 'EF'
-
-  if (needsLegal && formData.conformidadLegal !== 'conforme') {
-    return { estado: 'pendiente_legal', label: 'Pendiente de aprobación', color: 'blue' }
-  }
   const missing = docs.filter(d => d.req && !docState[d.id]?.loaded).length
   if (missing > 0) return { estado: 'activo_proceso', label: 'Activo en proceso', color: 'amber', missing }
   return { estado: 'activo', label: 'Activo', color: 'green' }
@@ -267,11 +262,45 @@ function Step1({ formData, onChange, errors }) {
 /* ═══════════════════════════════════════════════
    STEP 2 — DATOS BÁSICOS
 ═══════════════════════════════════════════════ */
+
+/* Datos SUNAT simulados — reemplazar con llamada a API cuando esté disponible */
+const SUNAT_MOCK = {
+  '20512345678': { razonSocial: 'EXPORTACIONES LIMA S.A.C.',     direccion: 'AV. INDUSTRIAL 1234, LA VICTORIA, LIMA',    ciiu: '4690' },
+  '20123456789': { razonSocial: 'BANCO AMERICANO DEL PERÚ S.A.', direccion: 'AV. LARCO 1301, MIRAFLORES, LIMA',          ciiu: '6419' },
+  '20987654321': { razonSocial: 'INVERSIONES PACÍFICO S.R.L.',   direccion: 'JR. DE LA UNIÓN 562, CERCADO DE LIMA',      ciiu: '6499' },
+  '20345678901': { razonSocial: 'MINERA ANDINA S.A.',            direccion: 'AV. BENAVIDES 1555, SANTIAGO DE SURCO',     ciiu: '0710' },
+  '20111222333': { razonSocial: 'COMERCIAL SAN MARTÍN E.I.R.L.', direccion: 'AV. VENEZUELA 3050, BREÑA, LIMA',           ciiu: '4711' },
+  '20444555666': { razonSocial: 'DISTRIBUIDORA NORTE S.A.',      direccion: 'AV. TÚPAC AMARU 2800, INDEPENDENCIA, LIMA', ciiu: '4631' },
+}
+
 function Step2({ formData, onChange, errors }) {
   const tipo      = formData.tipoPersona
   const isPersona = tipo === 'PN' || tipo === 'P10'
   const isEntidad = tipo === 'PJ' || tipo === 'EF'
   const showNac   = isPersona && formData.tipoDoc === 'CE'
+
+  const [sunatStatus, setSunatStatus] = useState(null) // null | 'loading' | 'found' | 'not_found'
+
+  function handleRucChange(val) {
+    const clean = val.replace(/\D/g, '').slice(0, 11)
+    onChange('numDoc', clean)
+    if (clean.length === 11) {
+      setSunatStatus('loading')
+      setTimeout(() => {
+        const data = SUNAT_MOCK[clean]
+        if (data) {
+          onChange('razonSocial',   data.razonSocial)
+          onChange('direccionSunat', data.direccion)
+          onChange('ciiu',           data.ciiu)
+          setSunatStatus('found')
+        } else {
+          setSunatStatus('not_found')
+        }
+      }, 700)
+    } else {
+      setSunatStatus(null)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -280,6 +309,8 @@ function Step2({ formData, onChange, errors }) {
       <section>
         <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-3">Datos de identidad</p>
         <div className="space-y-3">
+
+          {/* PN / P10: nombres primero, luego documento */}
           {isPersona && (
             <>
               <div className="grid grid-cols-2 gap-3">
@@ -293,42 +324,78 @@ function Step2({ formData, onChange, errors }) {
               <Field label="Nombres" required error={errors?.nombres}>
                 <TextInput value={formData.nombres} onChange={v => onChange('nombres', v)} placeholder="María Fernanda" error={errors?.nombres} />
               </Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Tipo de documento" required error={errors?.tipoDoc}>
+                  <SelectInput
+                    value={formData.tipoDoc}
+                    onChange={v => { onChange('tipoDoc', v); onChange('numDoc', ''); onChange('nacionalidad', '') }}
+                    options={tipo === 'PN'
+                      ? [{ value: 'DNI', label: 'DNI' }, { value: 'CE', label: 'Carné de Extranjería (CE)' }]
+                      : [{ value: 'DNI', label: 'DNI' }, { value: 'CE', label: 'Carné de Extranjería (CE)' }, { value: 'RUC', label: 'RUC' }]}
+                    error={errors?.tipoDoc}
+                  />
+                </Field>
+                <Field label="Número de documento" required
+                  hint={formData.tipoDoc === 'DNI' ? '8 dígitos' : undefined}
+                  error={errors?.numDoc}>
+                  <TextInput
+                    value={formData.numDoc}
+                    onChange={v => onChange('numDoc', v.replace(/\D/g, ''))}
+                    placeholder={formData.tipoDoc === 'DNI' ? '12345678' : 'Número'}
+                    maxLength={formData.tipoDoc === 'DNI' ? 8 : 20}
+                    error={errors?.numDoc}
+                  />
+                </Field>
+              </div>
+              {showNac && (
+                <Field label="Nacionalidad" required hint="Obligatorio para Carné de Extranjería" error={errors?.nacionalidad}>
+                  <TextInput value={formData.nacionalidad} onChange={v => onChange('nacionalidad', v)} placeholder="Ej. Colombiana" error={errors?.nacionalidad} />
+                </Field>
+              )}
             </>
           )}
+
+          {/* PJ / EF: RUC primero, luego Razón Social (auto-completada desde SUNAT) */}
           {isEntidad && (
-            <Field label="Razón Social" required error={errors?.razonSocial}>
-              <TextInput value={formData.razonSocial} onChange={v => onChange('razonSocial', v)} placeholder="Nombre legal completo de la entidad" error={errors?.razonSocial} />
-            </Field>
-          )}
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Tipo de documento (DOI)" required error={errors?.tipoDoc}>
-              <SelectInput
-                value={formData.tipoDoc}
-                onChange={v => { onChange('tipoDoc', v); onChange('numDoc', ''); onChange('nacionalidad', '') }}
-                options={isEntidad
-                  ? [{ value: 'RUC', label: 'RUC' }]
-                  : tipo === 'PN'
-                    ? [{ value: 'DNI', label: 'DNI' }, { value: 'CE', label: 'Carné de Extranjería (CE)' }]
-                    : [{ value: 'DNI', label: 'DNI' }, { value: 'CE', label: 'Carné de Extranjería (CE)' }, { value: 'RUC', label: 'RUC' }]}
-                error={errors?.tipoDoc}
-              />
-            </Field>
-            <Field label="Número de documento" required
-              hint={formData.tipoDoc === 'DNI' ? '8 dígitos' : formData.tipoDoc === 'RUC' ? '11 dígitos' : undefined}
-              error={errors?.numDoc}>
-              <TextInput
-                value={formData.numDoc}
-                onChange={v => onChange('numDoc', v.replace(/\D/g, ''))}
-                placeholder={formData.tipoDoc === 'DNI' ? '12345678' : formData.tipoDoc === 'RUC' ? '20123456789' : 'Número'}
-                maxLength={formData.tipoDoc === 'DNI' ? 8 : formData.tipoDoc === 'RUC' ? 11 : 20}
-                error={errors?.numDoc}
-              />
-            </Field>
-          </div>
-          {showNac && (
-            <Field label="Nacionalidad" required hint="Obligatorio para Carné de Extranjería" error={errors?.nacionalidad}>
-              <TextInput value={formData.nacionalidad} onChange={v => onChange('nacionalidad', v)} placeholder="Ej. Colombiana" error={errors?.nacionalidad} />
-            </Field>
+            <>
+              <Field label="RUC" required hint="11 dígitos — se consultará SUNAT automáticamente" error={errors?.numDoc}>
+                <TextInput
+                  value={formData.numDoc}
+                  onChange={handleRucChange}
+                  placeholder="20123456789"
+                  maxLength={11}
+                  error={errors?.numDoc}
+                />
+              </Field>
+
+              {sunatStatus === 'loading' && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-600">
+                  <div className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin shrink-0" />
+                  Consultando SUNAT…
+                </div>
+              )}
+              {sunatStatus === 'found' && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-xs text-green-700">
+                  <Check size={12} className="shrink-0" />
+                  Datos obtenidos de SUNAT — puedes editarlos si es necesario.
+                </div>
+              )}
+              {sunatStatus === 'not_found' && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700">
+                  <AlertCircle size={12} className="shrink-0" />
+                  RUC no encontrado en SUNAT. Ingresa los datos manualmente.
+                </div>
+              )}
+
+              <Field label="Razón Social" required error={errors?.razonSocial}>
+                <TextInput
+                  value={formData.razonSocial}
+                  onChange={v => onChange('razonSocial', v)}
+                  placeholder="Nombre legal completo de la entidad"
+                  error={errors?.razonSocial}
+                />
+              </Field>
+            </>
           )}
         </div>
       </section>
@@ -385,17 +452,10 @@ function Step2({ formData, onChange, errors }) {
               {formData.esPEP === 'si' && (
                 <div className="flex items-start gap-2.5 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                   <AlertTriangle size={14} className="text-amber-500 mt-0.5 shrink-0" />
-                  <p className="text-xs text-amber-700"><strong>Atención:</strong> Al declarar PEP, la Ficha PEP es obligatoria en el paso de Documentación y no se puede omitir.</p>
+                  <p className="text-xs text-amber-700"><strong>Atención:</strong> Al declarar PEP, la Ficha PEP es obligatoria. Si no se adjunta ahora, el cliente quedará pendiente de regularizar.</p>
                 </div>
               )}
             </>
-          )}
-          {isEntidad && (
-            <Field label="¿Opera a terceros?" required hint="Determina si se requiere Convenio Marco y revisión legal" error={errors?.operaATerceros}>
-              <RadioGroup value={formData.operaATerceros} onChange={v => onChange('operaATerceros', v)}
-                options={[{ value: 'si', label: 'Sí, opera a terceros' }, { value: 'no', label: 'Solo cuentas propias' }]} />
-              {errors?.operaATerceros && <p className="text-[11px] text-red-500 mt-1 flex items-center gap-1"><AlertCircle size={10} />{errors.operaATerceros}</p>}
-            </Field>
           )}
           <Field label="Clasificación de riesgo" required error={errors?.clasificacionRiesgo}>
             <div className="grid grid-cols-2 gap-3">
@@ -456,14 +516,14 @@ function Step3({ formData, docState, onUpload, onRemove, errors }) {
     <div>
       <h3 className="text-sm font-semibold text-gray-900 mb-1">Documentación requerida</h3>
       <p className="text-xs text-gray-500 mb-4">
-        Adjunta los documentos del expediente. Los documentos obligatorios no adjuntados dejarán al cliente en estado <strong>Activo en proceso</strong>, con excepción de la Ficha PEP que bloquea el alta.
+        Adjunta los documentos del expediente. Los documentos obligatorios no adjuntados dejarán al cliente en estado <strong>Activo en proceso</strong> para regularizar posteriormente.
       </p>
 
       {(formData.esPEP === 'si' || formData.clasificacionRiesgo === 'rf') && (
         <div className="flex items-start gap-2.5 p-3 bg-amber-50 border border-amber-200 rounded-lg mb-4">
           <AlertTriangle size={14} className="text-amber-500 mt-0.5 shrink-0" />
           <div className="space-y-0.5">
-            {formData.esPEP === 'si'               && <p className="text-xs text-amber-700"><strong>Cliente PEP:</strong> La Ficha PEP es obligatoria para continuar el registro.</p>}
+            {formData.esPEP === 'si'               && <p className="text-xs text-amber-700"><strong>Cliente PEP:</strong> La Ficha PEP es obligatoria. Si no se adjunta aquí, quedará pendiente de regularizar en el módulo de documentos.</p>}
             {formData.clasificacionRiesgo === 'rf' && <p className="text-xs text-amber-700"><strong>Régimen Reforzado:</strong> Se requiere documentación adicional de mayor control.</p>}
           </div>
         </div>
@@ -502,6 +562,124 @@ function Step3({ formData, docState, onUpload, onRemove, errors }) {
 /* ═══════════════════════════════════════════════
    STEP 4 — VALIDACIÓN PLAFT
 ═══════════════════════════════════════════════ */
+
+/* Base PLAFT mock — reemplazar con llamada a API cuando esté disponible */
+const PLAFT_MOCK = [
+  { doc: '12345678',    nombre: 'JUAN PÉREZ GARCÍA',      estado: 'sin_obs',    detalle: '' },
+  { doc: '87654321',    nombre: 'MARÍA LÓPEZ TORRES',     estado: 'con_obs',    detalle: 'Transacciones inusuales registradas en período 2024' },
+  { doc: '20123456789', nombre: 'INVERSIONES ARCA SAC',   estado: 'restringida',detalle: 'Figura en lista OFAC / ONU' },
+  { doc: '47112233',    nombre: 'PEDRO SÁNCHEZ VILA',     estado: 'con_obs',    detalle: 'PEP vinculado a proceso administrativo vigente' },
+]
+
+const ESTADO_BADGE = {
+  sin_obs:     { label: 'Sin observaciones', cls: 'bg-green-50 text-green-700 border-green-200' },
+  con_obs:     { label: 'Con observaciones', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+  restringida: { label: 'Lista restringida', cls: 'bg-red-50 text-red-700 border-red-200'       },
+}
+
+function buscarEnPLAFT(term) {
+  const t = (term || '').trim().toUpperCase()
+  if (!t) return null
+  return PLAFT_MOCK.filter(r => r.doc === t || r.nombre.includes(t))
+}
+
+function PLAFTCruce({ formData }) {
+  const nombreCliente = (formData.tipoPersona === 'PJ' || formData.tipoPersona === 'EF')
+    ? (formData.razonSocial || '').toUpperCase()
+    : [formData.nombres, formData.apellidoPaterno, formData.apellidoMaterno].filter(Boolean).join(' ').toUpperCase()
+
+  const [query,   setQuery]   = useState(formData.numDoc || '')
+  const [results, setResults] = useState(() => buscarEnPLAFT(formData.numDoc))
+  const [loading, setLoading] = useState(false)
+
+  function handleBuscar() {
+    if (!query.trim()) return
+    setLoading(true)
+    setTimeout(() => {
+      setResults(buscarEnPLAFT(query))
+      setLoading(false)
+    }, 500)
+  }
+
+  return (
+    <section>
+      <h3 className="text-sm font-semibold text-gray-900 mb-1">Cruce PLAFT</h3>
+      <p className="text-xs text-gray-500 mb-3">
+        Verifica al cliente en la base PLAFT. La búsqueda se pre-carga con el documento registrado; ajústala si necesitas buscar por nombre u otro criterio.
+      </p>
+
+      <div className="flex gap-2 mb-3">
+        <input
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && handleBuscar()}
+          placeholder="Buscar por N° documento o nombre..."
+          className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-50 hover:border-gray-300 transition-all"
+        />
+        <button
+          type="button"
+          onClick={handleBuscar}
+          disabled={loading || !query.trim()}
+          className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+        >
+          {loading ? 'Buscando…' : 'Buscar'}
+        </button>
+      </div>
+
+      <div className="flex items-center gap-2 mb-3 text-xs text-gray-500">
+        <Info size={11} className="shrink-0" />
+        <span>
+          Cliente registrado: <strong className="text-gray-700">{formData.numDoc || '—'}</strong>
+          {nombreCliente && <> · <span className="text-gray-600">{nombreCliente}</span></>}
+        </span>
+      </div>
+
+      {results === null && (
+        <p className="text-xs text-gray-400 italic py-2">Ingresa un criterio y presiona Buscar.</p>
+      )}
+
+      {results !== null && results.length === 0 && (
+        <div className="flex items-center gap-2 p-3 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-500">
+          <AlertCircle size={13} className="shrink-0 text-gray-400" />
+          No se encontraron registros en la base PLAFT para ese criterio.
+        </div>
+      )}
+
+      {results !== null && results.length > 0 && (
+        <div className="rounded-lg border border-gray-200 overflow-hidden">
+          <table className="w-full text-xs">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="text-left px-3 py-2 font-medium text-gray-500 whitespace-nowrap">N° Documento</th>
+                <th className="text-left px-3 py-2 font-medium text-gray-500">Nombre / Razón social</th>
+                <th className="text-left px-3 py-2 font-medium text-gray-500 whitespace-nowrap">Estado PLAFT</th>
+                <th className="text-left px-3 py-2 font-medium text-gray-500">Observación</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {results.map((r, i) => {
+                const badge = ESTADO_BADGE[r.estado]
+                return (
+                  <tr key={i} className="bg-white hover:bg-gray-50 transition-colors">
+                    <td className="px-3 py-2.5 font-mono text-gray-700">{r.doc}</td>
+                    <td className="px-3 py-2.5 text-gray-700">{r.nombre}</td>
+                    <td className="px-3 py-2.5">
+                      <span className={clsx('inline-flex px-2 py-0.5 rounded-full border text-[11px] font-medium', badge.cls)}>
+                        {badge.label}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2.5 text-gray-500">{r.detalle || '—'}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  )
+}
+
 function PLAFTCard({ value, current, label, color, onClick }) {
   const sel = current === value
   const colorCls = {
@@ -520,14 +698,15 @@ function PLAFTCard({ value, current, label, color, onClick }) {
 }
 
 function Step4({ formData, onChange, errors }) {
-  const needsLegal = (formData.tipoPersona === 'PJ' && formData.operaATerceros === 'si') || formData.tipoPersona === 'EF'
-
   return (
     <div className="space-y-6">
-      {/* PLAFT */}
+      {/* Cruce PLAFT */}
+      <PLAFTCruce formData={formData} />
+
+      {/* Confirmación del ejecutivo */}
       <section>
-        <h3 className="text-sm font-semibold text-gray-900 mb-1">Validación PLAFT</h3>
-        <p className="text-xs text-gray-500 mb-4">Registra el resultado de la validación realizada en el sistema externo Bankplus (Oficialía PLAFT o Middle Office).</p>
+        <h3 className="text-sm font-semibold text-gray-900 mb-1">Confirmación del ejecutivo</h3>
+        <p className="text-xs text-gray-500 mb-4">Registra el resultado final de la validación PLAFT basado en el cruce anterior.</p>
         <div className="space-y-4">
           <Field label="Resultado de validación PLAFT" required error={errors?.resultadoPLAFT}>
             <div className="grid grid-cols-3 gap-2">
@@ -557,41 +736,6 @@ function Step4({ formData, onChange, errors }) {
         </div>
       </section>
 
-      {/* Revisión Legal */}
-      {needsLegal && (
-        <section>
-          <div className="flex items-center gap-2 mb-1">
-            <h3 className="text-sm font-semibold text-gray-900">Revisión Asesoría Legal</h3>
-            <span className="text-[10px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">Requerido</span>
-          </div>
-          <p className="text-xs text-gray-500 mb-4">
-            Este cliente requiere Convenio Marco. Asesoría Legal debe revisar el convenio y la Vigencia de Poderes antes de activar al cliente.
-          </p>
-          <div className="space-y-4">
-            <Field label="Conformidad Asesoría Legal" required error={errors?.conformidadLegal}>
-              <div className="grid grid-cols-3 gap-2">
-                <PLAFTCard value="conforme"    current={formData.conformidadLegal} label="Conforme"    color="green" onClick={() => onChange('conformidadLegal', 'conforme')} />
-                <PLAFTCard value="no_conforme" current={formData.conformidadLegal} label="No conforme" color="red"   onClick={() => onChange('conformidadLegal', 'no_conforme')} />
-                <PLAFTCard value="pendiente"   current={formData.conformidadLegal} label="Pendiente"   color="amber" onClick={() => onChange('conformidadLegal', 'pendiente')} />
-              </div>
-              {errors?.conformidadLegal && (
-                <p className="text-[11px] text-red-500 mt-1.5 flex items-center gap-1"><AlertCircle size={10} />{errors.conformidadLegal}</p>
-              )}
-            </Field>
-            <Field label="Notas de revisión legal" hint="Observaciones del Convenio Marco y Vigencia de Poderes">
-              <textarea value={formData.notasLegal} onChange={e => onChange('notasLegal', e.target.value)} rows={3}
-                placeholder="Registra el resultado de la revisión de Asesoría Legal..."
-                className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm bg-white outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-50 resize-none hover:border-gray-300 transition-all" />
-            </Field>
-            <div className="flex items-start gap-2.5 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <Info size={13} className="text-blue-500 mt-0.5 shrink-0" />
-              <p className="text-xs text-blue-700">
-                La Vigencia de Poderes no puede superar 30 días. Una excepción autorizada por el Gerente de División Legal y Compliance permite hasta 60 días máximo.
-              </p>
-            </div>
-          </div>
-        </section>
-      )}
     </div>
   )
 }
@@ -634,9 +778,8 @@ function Step5({ formData, docState, onConfirmar, confirmed, newCode }) {
     : formData.razonSocial
 
   const estadoDisplay = {
-    activo:          { bg: 'bg-green-50',  border: 'border-green-200', text: 'text-green-700'  },
-    activo_proceso:  { bg: 'bg-amber-50',  border: 'border-amber-200', text: 'text-amber-700'  },
-    pendiente_legal: { bg: 'bg-blue-50',   border: 'border-blue-200',  text: 'text-blue-700'   },
+    activo:         { bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-700' },
+    activo_proceso: { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700' },
   }
   const sd = estadoDisplay[finalState.estado]
 
@@ -691,9 +834,6 @@ function Step5({ formData, docState, onConfirmar, confirmed, newCode }) {
             {finalState.estado === 'activo_proceso' && (
               <p className="text-xs text-amber-600 mt-1">{finalState.missing} documento(s) pendiente(s). El cliente puede operar mientras completa la documentación en el plazo configurado.</p>
             )}
-            {finalState.estado === 'pendiente_legal' && (
-              <p className="text-xs text-blue-600 mt-1">El cliente no podrá operar hasta que Asesoría Legal emita conformidad.</p>
-            )}
           </div>
           <button onClick={onConfirmar}
             className="px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 active:scale-95 transition-all shadow-sm whitespace-nowrap">
@@ -730,14 +870,12 @@ const INITIAL_FORM = {
   operaATerceros: '', consultaBankplus: '',
   clasificacionRiesgo: '',
   resultadoPLAFT: '', notasPLAFT: '',
-  conformidadLegal: '', notasLegal: '',
 }
 
 function validateStep(step, formData, docState) {
   const e = {}
   const isPersona = formData.tipoPersona === 'PN' || formData.tipoPersona === 'P10'
   const isEntidad = formData.tipoPersona === 'PJ' || formData.tipoPersona === 'EF'
-  const needsLegal = (formData.tipoPersona === 'PJ' && formData.operaATerceros === 'si') || formData.tipoPersona === 'EF'
 
   if (step === 1) {
     if (!formData.tipoPersona) e.tipoPersona = 'Selecciona un tipo de cliente'
@@ -762,28 +900,25 @@ function validateStep(step, formData, docState) {
     if (formData.tipoPersona === 'PN' && !formData.condicionLaboral) e.condicionLaboral = 'Campo requerido'
     if (isPersona && !formData.residenciasPeru)      e.residenciasPeru   = 'Campo requerido'
     if (isPersona && !formData.esPEP)                e.esPEP             = 'Campo requerido'
-    if (isEntidad && !formData.operaATerceros)       e.operaATerceros    = 'Campo requerido'
     if (!formData.clasificacionRiesgo)               e.clasificacionRiesgo = 'Campo requerido'
   }
   if (step === 3) {
-    if (formData.esPEP === 'si' && !docState.fichaPEP?.loaded) {
-      e.fichaPEP = 'La Ficha PEP es obligatoria (Regla de negocio 4)'
-    }
+    // Ficha PEP no bloquea el avance — queda como documento pendiente de regularizar
   }
   if (step === 4) {
     if (!formData.resultadoPLAFT) e.resultadoPLAFT = 'Campo requerido'
     else if (formData.resultadoPLAFT === 'no_conforme') e.resultadoPLAFT = 'Resultado No conforme bloquea el alta. Resuelve las observaciones PLAFT primero.'
-    if (needsLegal && !formData.conformidadLegal) e.conformidadLegal = 'Campo requerido'
   }
   return e
 }
 
 export default function ClienteWizard({ onBack, onSave, nextCode }) {
-  const [step,      setStep]      = useState(1)
-  const [formData,  setFormData]  = useState(INITIAL_FORM)
-  const [docState,  setDocState]  = useState({})
-  const [errors,    setErrors]    = useState({})
-  const [confirmed, setConfirmed] = useState(false)
+  const [step,       setStep]      = useState(1)
+  const [formData,   setFormData]  = useState(INITIAL_FORM)
+  const [docState,   setDocState]  = useState({})
+  const [errors,     setErrors]    = useState({})
+  const [confirmed,  setConfirmed] = useState(false)
+  const [savedCode,  setSavedCode] = useState(null)
 
   function handleChange(field, value) {
     if (field === 'tipoPersona') {
@@ -825,8 +960,10 @@ export default function ClienteWizard({ onBack, onSave, nextCode }) {
       const finalState = determineFinalState(formData, docState)
       const now = new Date()
       const fecha = `${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()}`
+      const codeToSave = nextCode ?? 'CLI-NVO'
+      setSavedCode(codeToSave)
       onSave({
-        id:            nextCode ?? 'CLI-NVO',
+        id:            codeToSave,
         nombre,
         tipo:          formData.tipoPersona,
         tipoDoc:       formData.tipoDoc,
@@ -880,7 +1017,7 @@ export default function ClienteWizard({ onBack, onSave, nextCode }) {
               docState={docState}
               onConfirmar={handleConfirmar}
               confirmed={confirmed}
-              newCode={nextCode}
+              newCode={savedCode ?? nextCode}
             />
           )}
         </div>

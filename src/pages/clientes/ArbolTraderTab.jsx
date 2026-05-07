@@ -464,13 +464,25 @@ function AsignacionDrawer({ open, onClose, onSave, asignacionActual }) {
     }
   }, [open])
 
-  const traderPrincipalOpts = MOCK_TRADERS.map(t => {
-    const h = getHead(t.headId)
-    return { value: t.id, label: t.nombre, sub: h?.mesa ?? '' }
-  })
+  const previewTrader = traderPrincipalId ? getTrader(traderPrincipalId) : null
+  const previewHead   = previewTrader ? getHead(previewTrader.headId) : null
+
+  const currentTrader  = asignacionActual ? getTrader(asignacionActual.traderPrincipalId) : null
+  const currentHead    = currentTrader ? getHead(currentTrader.headId) : null
+
+  const mesaActual    = currentHead?.mesa ?? null
+  const mesaPrincipal = traderPrincipalId ? getHead(getTrader(traderPrincipalId)?.headId)?.mesa : null
+
+  const traderPrincipalOpts = MOCK_TRADERS
+    .filter(t => !esReasignacion || !mesaActual || getHead(t.headId)?.mesa === mesaActual)
+    .map(t => {
+      const h = getHead(t.headId)
+      return { value: t.id, label: t.nombre, sub: h?.mesa ?? '' }
+    })
 
   const backupAddOpts = MOCK_TRADERS
-    .filter(t => t.id !== traderPrincipalId && !tradersBackup.includes(t.id))
+    .filter(t => t.id !== traderPrincipalId && !tradersBackup.includes(t.id) &&
+      (!mesaPrincipal || getHead(t.headId)?.mesa === mesaPrincipal))
     .map(t => {
       const h = getHead(t.headId)
       return { value: t.id, label: t.nombre, sub: h?.mesa ?? '' }
@@ -483,12 +495,6 @@ function AsignacionDrawer({ open, onClose, onSave, asignacionActual }) {
   function removeBackup(id) {
     setTradersBackup(prev => prev.filter(x => x !== id))
   }
-
-  const previewTrader = traderPrincipalId ? getTrader(traderPrincipalId) : null
-  const previewHead   = previewTrader ? getHead(previewTrader.headId) : null
-
-  const currentTrader  = asignacionActual ? getTrader(asignacionActual.traderPrincipalId) : null
-  const currentHead    = currentTrader ? getHead(currentTrader.headId) : null
   const currentBackups = asignacionActual
     ? (asignacionActual.tradersBackup ?? []).map(getTrader).filter(Boolean)
     : []
@@ -546,6 +552,14 @@ function AsignacionDrawer({ open, onClose, onSave, asignacionActual }) {
                 </p>
               )}
               <p className="text-[11px] text-gray-400 mt-0.5">Desde {asignacionActual.fechaAsignacion}</p>
+            </div>
+          )}
+
+          {/* Aviso de restricción de mesa */}
+          {esReasignacion && mesaActual && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-700">
+              <AlertTriangle size={12} className="shrink-0" />
+              Solo se muestran traders de <strong className="ml-0.5">{mesaActual}</strong>. No se puede reasignar entre mesas distintas.
             </div>
           )}
 

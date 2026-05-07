@@ -181,6 +181,7 @@ export default function PosicionFXPage({ activeTab = 'posicion_fx', ops = [], ma
   const [expanded,    setExpanded]    = useState({})
   const [lastRefresh, setLastRefresh] = useState(new Date())
   const [refreshing,  setRefreshing]  = useState(false)
+  const [stopLoss]                    = useState(500_000)
   const timerRef = useRef(null)
 
   // Auto-refresh cada 30s
@@ -208,6 +209,16 @@ export default function PosicionFXPage({ activeTab = 'posicion_fx', ops = [], ma
   return (
     <div className="space-y-5">
 
+      {/* Banner Stop Loss excedido */}
+      {Math.abs(neta) >= stopLoss && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-red-50 border border-red-200">
+          <AlertTriangle size={14} className="text-red-500 shrink-0" />
+          <p className="text-xs text-red-700 font-medium">
+            ⛔ Stop Loss excedido: posición neta de $ {fmtMoney(Math.abs(neta))} supera el límite de $ {fmtMoney(stopLoss)}. Acción inmediata requerida.
+          </p>
+        </div>
+      )}
+
       {/* Banner alerta crítica */}
       {alertaRoja && (
         <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-red-50 border border-red-200">
@@ -233,19 +244,31 @@ export default function PosicionFXPage({ activeTab = 'posicion_fx', ops = [], ma
         <KpiCard
           label="Posición neta USD" value={Math.abs(neta)}
           color={neta > 0 ? 'blue' : neta < 0 ? 'red' : 'gray'}
-          sub={neta > 0 ? 'Compradora' : neta < 0 ? 'Vendedora' : 'Neutral'}
+          sub={neta > 0 ? 'Comprada' : neta < 0 ? 'Vendida' : 'Neutral'}
           Icon={neta > 0 ? TrendingUp : neta < 0 ? TrendingDown : Minus}
         />
-        <div className="bg-white rounded-lg px-4 py-3.5" style={{ border: '1px solid var(--color-border)' }}>
-          <div className="flex items-center justify-between mb-1">
-            <p className="text-xs text-gray-400">Equiv. PEN</p>
-            {!actualTcSbs && <span className="text-[10px] text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">TC referencial</span>}
-          </div>
-          <p className="text-2xl font-bold text-gray-900 tracking-tight">
-            S/ {fmtMoney(Math.abs(neta) * (actualTcSbs ?? TC_SBS_AYER))}
-          </p>
-          <p className="text-[11px] mt-0.5 text-gray-400">TC {actualTcSbs ?? TC_SBS_AYER} {actualTcSbs ? '(SBS hoy)' : '(SBS ayer)'}</p>
-        </div>
+        {/* Stop Loss card */}
+        {(() => {
+          const posAbsoluta = Math.abs(neta)
+          const pctUsado = stopLoss > 0 ? posAbsoluta / stopLoss : 0
+          const enAlerta = pctUsado >= 0.8
+          const excedido = pctUsado >= 1
+          return (
+            <div className={clsx('rounded-lg px-4 py-3.5', excedido ? 'bg-red-50' : enAlerta ? 'bg-amber-50' : 'bg-white')} style={{ border: `1px solid ${excedido ? '#fca5a5' : enAlerta ? '#fcd34d' : 'var(--color-border)'}` }}>
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-xs text-gray-400">Stop Loss</p>
+                {excedido && <AlertTriangle size={13} className="text-red-500" />}
+                {enAlerta && !excedido && <AlertTriangle size={13} className="text-amber-500" />}
+              </div>
+              <p className={clsx('text-2xl font-bold tracking-tight', excedido ? 'text-red-600' : enAlerta ? 'text-amber-600' : 'text-gray-900')}>
+                $ {fmtMoney(stopLoss)}
+              </p>
+              <p className={clsx('text-[11px] mt-0.5', excedido ? 'text-red-500 font-semibold' : enAlerta ? 'text-amber-600 font-medium' : 'text-gray-400')}>
+                {excedido ? `⚠ EXCEDIDO — Exp. $ ${fmtMoney(posAbsoluta)}` : enAlerta ? `Alerta: ${Math.round(pctUsado * 100)}% utilizado` : `Exposición máx. permitida`}
+              </p>
+            </div>
+          )
+        })()}
       </div>
 
       {/* Tabla de posición por mesa */}
@@ -256,6 +279,7 @@ export default function PosicionFXPage({ activeTab = 'posicion_fx', ops = [], ma
             <p className="text-xs text-gray-400 mt-0.5">
               Solo operaciones activas · Actualización:{' '}
               {lastRefresh.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              {' '}(auto-refresh cada 30s)
             </p>
           </div>
           <button

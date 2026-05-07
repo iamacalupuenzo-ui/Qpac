@@ -57,17 +57,23 @@ const T = todayStr()
 let _seq = 9
 function nextCorr() { _seq++; return `OP-2026-${String(_seq).padStart(3, '0')}` }
 
+/* Usuario Back Office activo (mock — reemplazar por contexto de autenticación real) */
+const MOCK_BO_USER = 'María Torres'
+
 /* ═══════════════════════════════════════════════
    MOCK DATA
 ═══════════════════════════════════════════════ */
 const MOCK_OPS_INIT = [
   {
     id: 'OP-2026-001',
+    clienteId: 'CLI-001',
     clienteNombre: 'Empresa Industrial Inca S.A.C.',
     tipo: 'compra', montoUSD: 50_000, tc: 3.742, montoPEN: 187_100,
     estado: 'reservada', fecha: T, hora: '09:15',
     tcRef: 3.739, tcFuente: 'Datatec',
     trader: 'Andrés Valdivia C.', mesa: 'Mesa Alpha',
+    backOffice: 'María Torres',
+    cuentasDest: [{ cuentaId: 'CTA-002', monto: '187100' }],
     solAnulacion: null, historial: [],
     fechaAnulacion: null, horaAnulacion: null, anuladoPor: null, causaAnulacion: null,
   },
@@ -78,6 +84,7 @@ const MOCK_OPS_INIT = [
     estado: 'observada', fecha: T, hora: '10:30',
     tcRef: 3.738, tcFuente: 'Datatec',
     trader: 'Karla Mendoza R.', mesa: 'Mesa Beta',
+    backOffice: 'Jorge Castillo',
     solAnulacion: {
       causa: 'cliente_desiste',
       detalle: 'El cliente llamó indicando que ya no requiere la operación. Confirma desistimiento vía email a las 12:40.',
@@ -89,30 +96,52 @@ const MOCK_OPS_INIT = [
   },
   {
     id: 'OP-2026-003',
+    clienteId: 'CLI-003',
     clienteNombre: 'Grupo Minero Los Andes S.A.',
     tipo: 'compra', montoUSD: 120_000, tc: 3.741, montoPEN: 448_920,
     estado: 'en_revision', fecha: T, hora: '08:50',
     tcRef: 3.740, tcFuente: 'Datatec',
     trader: 'Rodrigo Paredes F.', mesa: 'Mesa Alpha',
+    backOffice: 'Ana L. Ramírez',
+    cuentasQpaqIngreso: ['QP-PEN-1'],
+    cuentasQpaqEgreso:  ['QP-USD-1'],
+    cuentasDest: [{ cuentaId: 'CTA-030', monto: '120000' }],
+    comprobantes: [
+      { name: 'Voucher_transferencia_OP003.pdf' },
+      { name: 'Constancia_recibo_OP003.jpg' },
+    ],
     solAnulacion: null, historial: [],
     fechaAnulacion: null, horaAnulacion: null, anuladoPor: null, causaAnulacion: null,
   },
   {
     id: 'OP-2026-004',
+    clienteId: 'CLI-004',
     clienteNombre: 'Consorcio Lima Norte S.A.C.',
     tipo: 'venta', montoUSD: 15_000, tc: 3.739, montoPEN: 56_085,
     estado: 'subsanada', fecha: subDays(1), hora: '16:20',
     tcRef: 3.742, tcFuente: 'Manual',
     trader: 'Sofía Ríos M.', mesa: 'Mesa Beta',
-    solAnulacion: null, historial: [],
+    backOffice: 'María Torres',
+    cuentasQpaqIngreso: ['QP-USD-2'],
+    cuentasQpaqEgreso:  ['QP-PEN-2'],
+    cuentasDest: [{ cuentaId: 'CTA-040', monto: '56085' }],
+    comprobantes: [{ name: 'Comprobante_abono_OP004.pdf' }],
+    solAnulacion: null,
+    historial: [
+      { tipo: 'observacion', por: 'Ana L. Ramírez (Back Office)',  fecha: subDays(1), hora: '17:00', detalle: 'El monto del voucher adjunto no coincide con S/ 56,085. Se solicita nuevo comprobante.' },
+      { tipo: 'subsanacion', por: 'Sofía Ríos M. (Trader)',        fecha: subDays(1), hora: '17:45', detalle: 'Voucher corregido adjunto. El error fue tipográfico del cliente al transferir.' },
+    ],
     fechaAnulacion: null, horaAnulacion: null, anuladoPor: null, causaAnulacion: null,
   },
   {
     id: 'OP-2026-005',
+    clienteId: 'CLI-005',
     clienteNombre: 'Importadora del Pacífico S.A.',
     tipo: 'compra', montoUSD: 80_000, tc: 3.740, montoPEN: 299_200,
     estado: 'reservada', fecha: T, hora: '11:05',
     trader: 'Andrés Valdivia C.', mesa: 'Mesa Alpha',
+    backOffice: null,
+    cuentasDest: [],
     solAnulacion: {
       causa: 'error_operativo',
       detalle: 'Se ingresó TC 3.740 pero el tipo de cambio pactado con el cliente fue 3.745. Error en el registro.',
@@ -128,6 +157,7 @@ const MOCK_OPS_INIT = [
     tipo: 'venta', montoUSD: 8_500, tc: 3.744, montoPEN: 31_824,
     estado: 'liquidada', fecha: subDays(1), hora: '14:15',
     trader: 'César Huanca P.', mesa: 'Mesa Gamma',
+    backOffice: 'Jorge Castillo',
     solAnulacion: null, historial: [],
     fechaAnulacion: null, horaAnulacion: null, anuladoPor: null, causaAnulacion: null,
   },
@@ -137,6 +167,7 @@ const MOCK_OPS_INIT = [
     tipo: 'compra', montoUSD: 45_000, tc: 3.743, montoPEN: 168_435,
     estado: 'anulada', fecha: subDays(2), hora: '10:00',
     trader: 'Rodrigo Paredes F.', mesa: 'Mesa Alpha',
+    backOffice: 'Ana L. Ramírez',
     solAnulacion: null,
     historial: [
       { tipo: 'solicitud', por: 'Rodrigo Paredes F. (Trader)',   fecha: subDays(2), hora: '10:45', causa: 'transferencia_mal_ejecutada', detalle: 'La transferencia fue realizada a una cuenta bancaria incorrecta por error del cliente.' },
@@ -152,6 +183,7 @@ const MOCK_OPS_INIT = [
     tipo: 'venta', montoUSD: 12_000, tc: 3.737, montoPEN: 44_844,
     estado: 'observada', fecha: T, hora: '13:40',
     trader: 'Luis Fernández A.', mesa: 'Mesa Gamma',
+    backOffice: null,
     solAnulacion: null, historial: [],
     fechaAnulacion: null, horaAnulacion: null, anuladoPor: null, causaAnulacion: null,
   },
@@ -197,6 +229,64 @@ function FilterSelect({ value, onChange, options, placeholder }) {
               {o.value === value && <Check size={11} className="text-blue-600 shrink-0" />}
             </button>
           ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ═══════════════════════════════════════════════
+   MULTI FILTER SELECT
+═══════════════════════════════════════════════ */
+function MultiFilterSelect({ values, onChange, options, placeholder }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+  useEffect(() => {
+    if (!open) return
+    const h = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [open])
+  const selectedLabels = options.filter(o => values.includes(o.value)).map(o => o.label)
+  const displayText = selectedLabels.length === 0
+    ? placeholder
+    : selectedLabels.length === 1
+    ? selectedLabels[0]
+    : `${selectedLabels.length} estados`
+  return (
+    <div className="relative" ref={ref}>
+      <button type="button" onClick={() => setOpen(v => !v)}
+        className={clsx('flex items-center gap-2 pl-3 pr-2.5 py-2 rounded-lg bg-white text-xs text-left transition-all w-full',
+          open ? 'border-blue-400 ring-2 ring-blue-100' : 'hover:border-gray-300')}
+        style={{ border: open ? undefined : '1px solid var(--color-border)' }}>
+        <span className={clsx('flex-1 truncate', values.length > 0 ? 'text-gray-700 font-medium' : 'text-gray-400')}>{displayText}</span>
+        <ChevronDown size={11} className={clsx('text-gray-400 shrink-0 transition-transform duration-150', open && 'rotate-180')} />
+      </button>
+      {open && (
+        <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg z-30 py-1 min-w-max"
+          style={{ border: '1px solid var(--color-border)', boxShadow: '0 8px 24px rgba(0,0,0,0.09)' }}>
+          {options.map(o => (
+            <button key={o.value} type="button"
+              onClick={() => {
+                const next = values.includes(o.value) ? values.filter(v => v !== o.value) : [...values, o.value]
+                onChange(next)
+              }}
+              className={clsx('w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors text-left',
+                values.includes(o.value) ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50')}>
+              <div className={clsx('w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0',
+                values.includes(o.value) ? 'bg-blue-600 border-blue-600' : 'border-gray-300')}>
+                {values.includes(o.value) && <Check size={9} className="text-white" />}
+              </div>
+              {o.label}
+            </button>
+          ))}
+          {values.length > 0 && (
+            <button onClick={() => onChange([])}
+              className="w-full text-[10px] text-gray-400 hover:text-gray-600 px-3 py-1.5 text-left border-t"
+              style={{ borderColor: 'var(--color-border)' }}>
+              Limpiar selección
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -665,44 +755,93 @@ function VerDetalleDrawer({ open, op, onClose }) {
 /* ═══════════════════════════════════════════════
    EDITAR OPERACIÓN DRAWER
 ═══════════════════════════════════════════════ */
-function EditarDrawer({ open, op, onClose, onGuardar }) {
-  const [monto,  setMonto]  = useState('')
-  const [tc,     setTc]     = useState('')
-  const [errors, setErrors] = useState({})
+function EditarDrawer({ open, op, ops, onClose, onGuardar }) {
+  const [monto,    setMonto]    = useState('')
+  const [tc,       setTc]       = useState('')
+  const [montoPen, setMontoPen] = useState('')
+  const [tcPunta,  setTcPunta]  = useState('')
+  const [errors,   setErrors]   = useState({})
 
   useEffect(() => {
-    if (op) { setMonto(String(op.montoUSD)); setTc(String(op.tc)) }
+    if (op) {
+      setMonto(String(op.montoUSD ?? ''))
+      setTc(String(op.tc ?? ''))
+      setMontoPen(String(op.montoPEN ?? ''))
+      setTcPunta(String(op.tcRef ?? ''))
+      setErrors({})
+    }
   }, [op])
 
   function handleClose() { setErrors({}); onClose() }
 
+  function handleMonto(val) {
+    setMonto(val)
+    const m = parseFloat(val), t = parseFloat(tc)
+    if (!isNaN(m) && m > 0 && !isNaN(t) && t > 0) setMontoPen((m * t).toFixed(2))
+    setErrors(v => ({ ...v, monto: undefined }))
+  }
+
+  function handleTc(val) {
+    setTc(val)
+    const m = parseFloat(monto), t = parseFloat(val)
+    if (!isNaN(m) && m > 0 && !isNaN(t) && t > 0) setMontoPen((m * t).toFixed(2))
+    setErrors(v => ({ ...v, tc: undefined }))
+  }
+
+  function handleMontoPen(val) {
+    setMontoPen(val)
+    const p = parseFloat(val), m = parseFloat(monto), t = parseFloat(tc)
+    if (!isNaN(p) && p > 0) {
+      if (!isNaN(m) && m > 0) setTc((p / m).toFixed(4))
+      else if (!isNaN(t) && t > 0) setMonto((p / t).toFixed(2))
+    }
+    setErrors(v => ({ ...v, montoPen: undefined }))
+  }
+
+  const tcPuntaVal = parseFloat(tcPunta)
+  const tcVal      = parseFloat(tc)
+  const spread = !isNaN(tcPuntaVal) && tcPuntaVal > 0 && !isNaN(tcVal) && tcVal > 0
+    ? (op?.tipo === 'compra' ? tcPuntaVal - tcVal : tcVal - tcPuntaVal) * 10000
+    : null
+
+  const similar = (ops ?? []).filter(o =>
+    o.id !== op?.id &&
+    o.clienteNombre === op?.clienteNombre &&
+    o.fecha === T &&
+    !isNaN(parseFloat(monto)) && Math.abs(parseFloat(monto) - o.montoUSD) < 0.01 &&
+    !isNaN(parseFloat(tc)) && Math.abs(parseFloat(tc) - o.tc) < 0.0001
+  )
+
   function validate() {
     const e = {}
-    if (!monto || isNaN(parseFloat(monto)) || parseFloat(monto) <= 0)
-      e.monto = 'Ingrese un monto válido mayor a cero.'
-    if (!tc || isNaN(parseFloat(tc)) || parseFloat(tc) <= 0)
-      e.tc = 'Ingrese un TC válido.'
+    const m = parseFloat(monto), t = parseFloat(tc), p = parseFloat(montoPen)
+    if (!monto || isNaN(m) || m <= 0)    e.monto    = 'Ingrese un monto USD válido.'
+    if (!tc || isNaN(t) || t <= 0)       e.tc       = 'Ingrese un TC pactado válido.'
+    if (!montoPen || isNaN(p) || p <= 0) e.montoPen = 'Ingrese un monto PEN válido.'
     setErrors(e)
     return Object.keys(e).length === 0
   }
 
   function handleGuardar() {
     if (!validate()) return
-    const montoUSD = parseFloat(monto)
-    const tcVal    = parseFloat(tc)
-    onGuardar(op.id, { montoUSD, tc: tcVal, montoPEN: Math.round(montoUSD * tcVal * 100) / 100 })
+    const tcRefVal = parseFloat(tcPunta)
+    onGuardar(op.id, {
+      montoUSD: parseFloat(monto),
+      tc: parseFloat(tc),
+      montoPEN: parseFloat(montoPen),
+      ...(tcPunta && !isNaN(tcRefVal) && tcRefVal > 0 ? { tcRef: tcRefVal } : {}),
+    })
     handleClose()
   }
 
-  const montoPEN = monto && tc && !isNaN(parseFloat(monto)) && !isNaN(parseFloat(tc))
-    ? parseFloat(monto) * parseFloat(tc)
-    : null
+  const montoNum    = parseFloat(monto)
+  const montoPenNum = parseFloat(montoPen)
 
   return (
     <>
       {open && <div className="fixed inset-0 z-40 bg-black/20" onClick={handleClose} />}
       <div className="fixed right-0 top-0 h-full z-50 bg-white flex flex-col"
-        style={{ width: 440, borderLeft: '1px solid var(--color-border)', boxShadow: '-4px 0 24px rgba(0,0,0,0.08)', transform: open ? 'translateX(0)' : 'translateX(100%)', transition: 'transform 0.22s ease' }}>
+        style={{ width: 480, borderLeft: '1px solid var(--color-border)', boxShadow: '-4px 0 24px rgba(0,0,0,0.08)', transform: open ? 'translateX(0)' : 'translateX(100%)', transition: 'transform 0.22s ease' }}>
 
         <div className="flex items-center justify-between px-5 py-4 border-b shrink-0" style={{ borderColor: 'var(--color-border)' }}>
           <div>
@@ -724,40 +863,95 @@ function EditarDrawer({ open, op, onClose, onGuardar }) {
             </div>
           )}
 
-          <div className="flex items-start gap-2.5 px-3 py-2.5 rounded-lg bg-amber-50" style={{ border: '1px solid #fcd34d' }}>
-            <AlertTriangle size={12} className="text-amber-500 shrink-0 mt-0.5" />
-            <p className="text-[11px] text-amber-700 leading-relaxed">
-              Solo se puede modificar el monto y el tipo de cambio. El estado de la operación no cambia.
+          {/* Alerta de operación similar */}
+          {similar.length > 0 && (
+            <div className="flex items-start gap-2.5 px-3 py-3 rounded-lg bg-amber-50" style={{ border: '1px solid #fcd34d' }}>
+              <AlertTriangle size={13} className="text-amber-500 shrink-0 mt-0.5" />
+              <p className="text-[11px] text-amber-800 leading-relaxed">
+                <strong>Posible duplicado:</strong> existe{similar.length > 1 ? 'n' : ''} {similar.length > 1 ? `${similar.length} operaciones similares` : 'una operación similar'} registrada{similar.length > 1 ? 's' : ''} hoy para este cliente con el mismo monto y TC ({similar.map(s => s.id).join(', ')}).
+              </p>
+            </div>
+          )}
+
+          <div className="flex items-start gap-2.5 px-3 py-2.5 rounded-lg bg-blue-50" style={{ border: '1px solid #bfdbfe' }}>
+            <Info size={12} className="text-blue-500 shrink-0 mt-0.5" />
+            <p className="text-[11px] text-blue-700 leading-relaxed">
+              Ingresa 2 de 3 campos principales (Monto USD, TC Pactado o Monto PEN) y el tercero se calculará automáticamente.
             </p>
           </div>
 
-          <div className="space-y-1.5">
-            <label className="block text-xs font-medium text-gray-700">Monto USD <span className="text-red-400">*</span></label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400">USD</span>
-              <input type="number" min="0" step="0.01" value={monto}
-                onChange={e => { setMonto(e.target.value); setErrors(v => ({ ...v, monto: undefined })) }}
-                className={clsx('w-full pl-12 pr-3 py-2.5 rounded-lg border text-sm text-right outline-none transition-all',
-                  errors.monto ? 'border-red-400' : 'border-gray-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-100')} />
+          {/* Grid 2 columnas: 4 campos editables */}
+          <div className="grid grid-cols-2 gap-3">
+            {/* Monto USD */}
+            <div className="space-y-1">
+              <label className="block text-xs font-medium text-gray-700">Monto USD <span className="text-red-400">*</span></label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400">USD</span>
+                <input type="number" min="0" step="0.01" value={monto}
+                  onChange={e => handleMonto(e.target.value)}
+                  className={clsx('w-full pl-12 pr-3 py-2.5 rounded-lg border text-sm text-right outline-none transition-all',
+                    errors.monto ? 'border-red-400' : 'border-gray-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-100')} />
+              </div>
+              {monto && !isNaN(montoNum) && montoNum > 0 && (
+                <p className="text-[10px] text-gray-400 text-right">{fmtMoney(montoNum)}</p>
+              )}
+              {errors.monto && <p className="text-[11px] text-red-500">{errors.monto}</p>}
             </div>
-            {errors.monto && <p className="text-[11px] text-red-500">{errors.monto}</p>}
+
+            {/* TC Pactado */}
+            <div className="space-y-1">
+              <label className="block text-xs font-medium text-gray-700">TC Pactado <span className="text-red-400">*</span></label>
+              <input type="number" step="0.0001" value={tc}
+                onChange={e => handleTc(e.target.value)}
+                className={clsx('w-full px-3 py-2.5 rounded-lg border text-sm text-right font-mono outline-none transition-all',
+                  errors.tc ? 'border-red-400' : 'border-gray-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-100')} />
+              {errors.tc && <p className="text-[11px] text-red-500">{errors.tc}</p>}
+            </div>
+
+            {/* Monto PEN */}
+            <div className="space-y-1">
+              <label className="block text-xs font-medium text-gray-700">Monto PEN <span className="text-red-400">*</span></label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400">PEN</span>
+                <input type="number" min="0" step="0.01" value={montoPen}
+                  onChange={e => handleMontoPen(e.target.value)}
+                  className={clsx('w-full pl-12 pr-3 py-2.5 rounded-lg border text-sm text-right outline-none transition-all',
+                    errors.montoPen ? 'border-red-400' : 'border-gray-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-100')} />
+              </div>
+              {montoPen && !isNaN(montoPenNum) && montoPenNum > 0 && (
+                <p className="text-[10px] text-gray-400 text-right">{fmtMoney(montoPenNum)}</p>
+              )}
+              {errors.montoPen && <p className="text-[11px] text-red-500">{errors.montoPen}</p>}
+            </div>
+
+            {/* TC Punta */}
+            <div className="space-y-1">
+              <label className="block text-xs font-medium text-gray-700">TC Punta</label>
+              <input type="number" step="0.0001" value={tcPunta}
+                onChange={e => setTcPunta(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm text-right font-mono outline-none transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-100" />
+            </div>
           </div>
 
-          <div className="space-y-1.5">
-            <label className="block text-xs font-medium text-gray-700">TC pactado <span className="text-red-400">*</span></label>
-            <input type="number" step="0.001" value={tc}
-              onChange={e => { setTc(e.target.value); setErrors(v => ({ ...v, tc: undefined })) }}
-              className={clsx('w-full px-3 py-2.5 rounded-lg border text-sm text-right font-mono outline-none transition-all',
-                errors.tc ? 'border-red-400' : 'border-gray-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-100')} />
-            {errors.tc && <p className="text-[11px] text-red-500">{errors.tc}</p>}
-          </div>
-
-          {montoPEN !== null && (
-            <div className="flex items-center justify-between px-4 py-2.5 rounded-lg bg-gray-50" style={{ border: '1px solid var(--color-border)' }}>
-              <span className="text-xs text-gray-500">Contravalor calculado (PEN)</span>
-              <span className="text-sm font-semibold font-mono text-gray-800">PEN {fmtMoney(montoPEN)}</span>
+          {/* Campos calculados: Spread y Fuente TC */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-lg px-3 py-2.5 bg-gray-50" style={{ border: '1px solid var(--color-border)' }}>
+              <p className="text-[10px] text-gray-400 mb-1">Spread (×10,000)</p>
+              <p className={clsx('text-sm font-bold font-mono',
+                spread === null ? 'text-gray-300' : spread >= 0 ? 'text-emerald-600' : 'text-red-500')}>
+                {spread !== null ? spread.toFixed(2) : '—'}
+              </p>
+              {spread !== null && (
+                <p className="text-[9px] text-gray-400 mt-0.5">
+                  {op?.tipo === 'compra' ? 'TC Punta – TC Pactado' : 'TC Pactado – TC Punta'}
+                </p>
+              )}
             </div>
-          )}
+            <div className="rounded-lg px-3 py-2.5 bg-gray-50" style={{ border: '1px solid var(--color-border)' }}>
+              <p className="text-[10px] text-gray-400 mb-1">Fuente TC</p>
+              <p className="text-sm font-semibold text-gray-700">{op?.tcFuente ?? '—'}</p>
+            </div>
+          </div>
         </div>
 
         <div className="px-5 py-3.5 border-t flex gap-2 shrink-0" style={{ borderColor: 'var(--color-border)' }}>
@@ -800,8 +994,8 @@ export default function OperacionesPage({ role = 'trader', activeTab = 'bandeja'
   // Use lifted state if provided, otherwise local
   const ops    = opsProp    ?? opsLocal
   const setOps = setOpsProp ?? setOpsLocal
-  const [filtroEstado, setFiltroEstado] = useState('')
-  const [filtroTipo,   setFiltroTipo]   = useState('')
+  const [filtroEstados, setFiltroEstados] = useState([])
+  const [filtroTipo,    setFiltroTipo]    = useState('')
   const [dateFrom,     setDateFrom]     = useState('')
   const [dateTo,       setDateTo]       = useState('')
   const [search,       setSearch]       = useState('')
@@ -847,13 +1041,17 @@ export default function OperacionesPage({ role = 'trader', activeTab = 'bandeja'
 
   const filtered = useMemo(() => {
     return ops.filter(o => {
-      // Filtro por pestaña activa
-      if (activeTab === 'pendientes_abono')     return o.estado === 'reservada'
-      if (activeTab === 'operaciones_observadas') return o.estado === 'observada'
-      if (activeTab === 'revision_back_office')  return o.estado === 'en_revision' || o.estado === 'subsanada'
+      // Back Office solo ve sus propias operaciones (o sin asignar)
+      if (role === 'back' && o.backOffice !== null && o.backOffice !== MOCK_BO_USER) return false
 
-      if (filtroEstado && o.estado !== filtroEstado) return false
-      if (filtroTipo   && o.tipo   !== filtroTipo)   return false
+      // Filtro por pestaña activa
+      if (activeTab === 'pendientes_abono')       return o.estado === 'reservada'
+      if (activeTab === 'operaciones_observadas') return o.estado === 'observada'
+      if (activeTab === 'revision_back_office')   return o.estado === 'en_revision' || o.estado === 'subsanada'
+      if (activeTab === 'liquidadas')             return o.estado === 'liquidada'
+
+      if (filtroEstados.length > 0 && !filtroEstados.includes(o.estado)) return false
+      if (filtroTipo && o.tipo !== filtroTipo) return false
       if (dateFrom && o.fecha < dateFrom)             return false
       if (dateTo   && o.fecha > dateTo)               return false
       if (search) {
@@ -862,15 +1060,15 @@ export default function OperacionesPage({ role = 'trader', activeTab = 'bandeja'
       }
       return true
     })
-  }, [ops, activeTab, filtroEstado, filtroTipo, dateFrom, dateTo, search])
+  }, [ops, activeTab, role, filtroEstados, filtroTipo, dateFrom, dateTo, search])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const safePage   = Math.min(page, totalPages)
   const paged      = filtered.slice((safePage - 1) * pageSize, safePage * pageSize)
-  const activeFilters = [filtroEstado, filtroTipo, dateFrom, dateTo].filter(Boolean).length
+  const activeFilters = [filtroEstados.length > 0, filtroTipo, dateFrom, dateTo].filter(Boolean).length
 
   function resetPage() { setPage(1) }
-  function clearFilters() { setFiltroEstado(''); setFiltroTipo(''); setDateFrom(''); setDateTo(''); resetPage() }
+  function clearFilters() { setFiltroEstados([]); setFiltroTipo(''); setDateFrom(''); setDateTo(''); resetPage() }
   function getNow() {
     const n = new Date()
     return { hora: `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}` }
@@ -940,14 +1138,23 @@ export default function OperacionesPage({ role = 'trader', activeTab = 'bandeja'
     notify?.(`Operación ${opId} actualizada.`)
   }
 
+  function handleTomarOperacion(opId) {
+    setOps(prev => prev.map(o => o.id === opId ? { ...o, backOffice: MOCK_BO_USER } : o))
+    notify?.(`Operación ${opId} asignada a ${MOCK_BO_USER}.`)
+  }
+
   function handleConfirmarAbono(id, data) {
-    setOps(prev => prev.map(o => o.id === id ? { 
-      ...o, 
+    setOps(prev => prev.map(o => o.id === id ? {
+      ...o,
       estado: 'en_revision',
-      cuentaQpaqIn: data.ctaIngreso,
+      cuentaQpaqIn:  data.ctaIngreso,
       cuentaQpaqOut: data.ctaEgreso,
-      comprobantes: data.files,
-      enviadaBackOffice: new Date().toISOString()
+      cuentasDest:   data.cuentasDestCliente ?? [],
+      comprobantes:  data.files,
+      montoUSD:      data.montoUSD ?? o.montoUSD,
+      tc:            data.tc       ?? o.tc,
+      montoPEN:      Math.round((data.montoUSD ?? o.montoUSD) * (data.tc ?? o.tc) * 100) / 100,
+      enviadaBackOffice: new Date().toISOString(),
     } : o))
     setView('bandeja')
     setEnvioOp(null)
@@ -961,17 +1168,24 @@ export default function OperacionesPage({ role = 'trader', activeTab = 'bandeja'
 
   function handleSubsanar(id, data) {
     const { hora } = getNow()
-    setOps(prev => prev.map(o => o.id === id ? {
-      ...o,
-      estado: 'subsanada',
-      cuentaQpaqIn:  data.ctaIngreso,
-      cuentaQpaqOut: data.ctaEgreso,
-      comprobantes: [...(o.comprobantes ?? []), ...data.files],
-      historial: [...(o.historial ?? []), {
-        tipo: 'subsanacion', por: 'Trader',
-        fecha: T, hora, detalle: 'Operación subsanada y reenviada a Back Office.',
-      }],
-    } : o))
+    setOps(prev => prev.map(o => {
+      if (o.id !== id) return o
+      const comprobantesOriginales = (o.comprobantes ?? []).filter((_, i) => !(data.deletedOriginals ?? []).includes(i))
+      return {
+        ...o,
+        estado: 'subsanada',
+        cuentaQpaqIn:  data.ctaIngreso,
+        cuentaQpaqOut: data.ctaEgreso,
+        montoUSD: data.montoUSD ?? o.montoUSD,
+        tc:       data.tc       ?? o.tc,
+        montoPEN: Math.round((data.montoUSD ?? o.montoUSD) * (data.tc ?? o.tc) * 100) / 100,
+        comprobantes: [...comprobantesOriginales, ...data.files],
+        historial: [...(o.historial ?? []), {
+          tipo: 'subsanacion', por: 'Trader',
+          fecha: T, hora, detalle: 'Operación subsanada y reenviada a Back Office.',
+        }],
+      }
+    }))
     setView('bandeja')
     setSubsanarOp(null)
     notify?.(`Observaciones de la operación ${id} subsanadas.`)
@@ -1036,6 +1250,27 @@ export default function OperacionesPage({ role = 'trader', activeTab = 'bandeja'
     setAutorizarOp(null)
   }
 
+  function handleAnularDesdeSubsanacion(opId) {
+    const { hora } = getNow()
+    setOps(prev => prev.map(o => {
+      if (o.id !== opId) return o
+      return {
+        ...o, estado: 'anulada', solAnulacion: null,
+        fechaAnulacion: T, horaAnulacion: hora,
+        anuladoPor: 'Trader', causaAnulacion: 'error_operativo',
+        historial: [...(o.historial ?? []), {
+          tipo: 'anulacion', por: 'Trader',
+          fecha: T, hora, causa: 'error_operativo',
+          detalle: 'Operación anulada desde el asistente de subsanación.',
+        }],
+      }
+    }))
+    setView('bandeja')
+    setSubsanarOp(null)
+    setInWizard?.(false)
+    notify?.(`Operación ${opId} anulada.`)
+  }
+
   function handleBOObservar(id, texto) {
     const { hora } = getNow()
     setOps(prev => prev.map(o => o.id === id ? {
@@ -1060,7 +1295,7 @@ export default function OperacionesPage({ role = 'trader', activeTab = 'bandeja'
 
   /* Vista: subsanación de observación */
   if (view === 'subsanar')
-    return <SubsanacionWizard op={subsanarOp} onBack={() => { setView('bandeja'); setSubsanarOp(null) }} onSubsanar={(id, data) => { handleSubsanar(id, data); setInWizard?.(false) }} onPreviewDoc={onPreviewDoc} />
+    return <SubsanacionWizard op={subsanarOp} onBack={() => { setView('bandeja'); setSubsanarOp(null) }} onSubsanar={(id, data) => { handleSubsanar(id, data); setInWizard?.(false) }} onPreviewDoc={onPreviewDoc} onAnular={handleAnularDesdeSubsanacion} />
 
   /* Vista: revisión de Back Office */
   if (view === 'revision_bo')
@@ -1068,7 +1303,7 @@ export default function OperacionesPage({ role = 'trader', activeTab = 'bandeja'
 
   /* Vista: wizard nueva cotización */
   if (view === 'nueva')
-    return <CotizacionWizard onBack={() => { setView('bandeja'); setInWizard?.(false) }} onCreada={(data) => { handleCreada(data); setInWizard?.(false) }} marketData={marketData} />
+    return <CotizacionWizard onBack={() => { setView('bandeja'); setInWizard?.(false) }} onCreada={(data) => { handleCreada(data); setInWizard?.(false) }} marketData={marketData} ops={ops} />
 
   return (
     <>
@@ -1131,17 +1366,16 @@ export default function OperacionesPage({ role = 'trader', activeTab = 'bandeja'
       <div className="flex items-end gap-2 mb-3">
         <div className="flex flex-col gap-1">
           <label className="text-[11px] font-medium text-gray-400 pl-1">Estado</label>
-          <div className="w-44">
-            <FilterSelect value={filtroEstado} onChange={v => { setFiltroEstado(v); resetPage() }}
+          <div className="w-48">
+            <MultiFilterSelect values={filtroEstados} onChange={v => { setFiltroEstados(v); resetPage() }}
               placeholder="Todos los estados"
               options={[
-                { value: '',            label: 'Todos los estados' },
-                { value: 'reservada',   label: 'Reservada'         },
-                { value: 'observada',   label: 'Observada'         },
-                { value: 'en_revision', label: 'En revisión'       },
-                { value: 'subsanada',   label: 'Subsanada'         },
-                { value: 'liquidada',   label: 'Liquidada'         },
-                { value: 'anulada',     label: 'Anulada'           },
+                { value: 'reservada',   label: 'Reservada'   },
+                { value: 'observada',   label: 'Observada'   },
+                { value: 'en_revision', label: 'En revisión' },
+                { value: 'subsanada',   label: 'Subsanada'   },
+                { value: 'liquidada',   label: 'Liquidada'   },
+                { value: 'anulada',     label: 'Anulada'     },
               ]} />
           </div>
         </div>
@@ -1206,7 +1440,10 @@ export default function OperacionesPage({ role = 'trader', activeTab = 'bandeja'
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr style={{ background: 'var(--color-surface-bg)', borderBottom: '1px solid var(--color-border)' }}>
-              {['Correlativo', 'Fecha / Hora', 'Cliente', 'Tipo', 'Monto USD', 'TC', 'Ref / Fuente', 'Estado', 'Acciones'].map(h => (
+              {['Correlativo', 'Fecha / Hora', 'Cliente', 'Tipo', 'Monto USD', 'TC',
+                ...(activeTab === 'revision_back_office' ? ['Monto PEN'] : ['Ref / Fuente']),
+                ...(role === 'admin' || role === 'back' ? ['Back Office'] : []),
+                'Estado', 'Acciones'].map(h => (
                 <th key={h} className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 whitespace-nowrap">{h}</th>
               ))}
             </tr>
@@ -1214,7 +1451,7 @@ export default function OperacionesPage({ role = 'trader', activeTab = 'bandeja'
           <tbody>
             {paged.length === 0 && (
               <tr>
-                <td colSpan={9} className="px-4 py-12 text-center text-sm text-gray-400">
+                <td colSpan={(role === 'admin' || role === 'back') ? 10 : 9} className="px-4 py-12 text-center text-sm text-gray-400">
                   No se encontraron operaciones con esos criterios
                 </td>
               </tr>
@@ -1264,12 +1501,30 @@ export default function OperacionesPage({ role = 'trader', activeTab = 'bandeja'
                   <td className="px-4 py-3 text-xs text-gray-800 font-mono text-right">
                     {fmtTC(op.tc)}
                   </td>
-                  <td className="px-4 py-3">
-                    <p className="text-xs text-gray-800 font-mono">{fmtTC(op.tcRef ?? 0)}</p>
-                    <p className={clsx('text-[10px]', op.tcFuente === 'Manual' ? 'text-amber-600' : 'text-blue-500 font-bold uppercase opacity-60')}>
-                      {op.tcFuente ?? '—'}
-                    </p>
-                  </td>
+                  {activeTab === 'revision_back_office' ? (
+                    <td className="px-4 py-3 text-xs text-gray-800 font-medium whitespace-nowrap text-right">
+                      {op.montoPEN ? `S/ ${fmtMoney(op.montoPEN)}` : '—'}
+                    </td>
+                  ) : (
+                    <td className="px-4 py-3">
+                      <p className="text-xs text-gray-800 font-mono">{fmtTC(op.tcRef ?? 0)}</p>
+                      <p className={clsx('text-[10px]', op.tcFuente === 'Manual' ? 'text-amber-600' : 'text-blue-500 font-bold uppercase opacity-60')}>
+                        {op.tcFuente ?? '—'}
+                      </p>
+                    </td>
+                  )}
+
+                  {(role === 'admin' || role === 'back') && (
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {role === 'admin'
+                        ? op.backOffice
+                          ? <span className="text-xs text-gray-700">{op.backOffice}</span>
+                          : <span className="text-[11px] text-gray-300 italic">Sin asignar</span>
+                        : /* role === 'back': siempre es su propio nombre */
+                          <span className="text-xs text-gray-700">{MOCK_BO_USER}</span>
+                      }
+                    </td>
+                  )}
 
                   <td className="px-4 py-3"><EstadoBadge estado={op.estado} /></td>
 
@@ -1300,12 +1555,19 @@ export default function OperacionesPage({ role = 'trader', activeTab = 'bandeja'
                           <ShieldCheck size={12} /> Subsanar
                         </button>
                       ) : activeTab === 'revision_back_office' ? (
-                        <button
-                          onClick={() => { setRevisarBOOp(op); setView('revision_bo') }}
-                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200 bg-gray-50 text-gray-700 text-[11px] font-semibold hover:bg-gray-100 transition-colors"
-                        >
-                          <Eye size={12} /> Revisar operación
-                        </button>
+                        op.backOffice === null && role === 'back'
+                          ? <button
+                              onClick={() => handleTomarOperacion(op.id)}
+                              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-[11px] font-semibold hover:bg-blue-100 transition-colors"
+                            >
+                              <ShieldCheck size={12} /> Tomar operación
+                            </button>
+                          : <button
+                              onClick={() => { setRevisarBOOp(op); setView('revision_bo') }}
+                              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200 bg-gray-50 text-gray-700 text-[11px] font-semibold hover:bg-gray-100 transition-colors"
+                            >
+                              <Eye size={12} /> Revisar operación
+                            </button>
                       ) : (op.estado === 'liquidada' && (role === 'back' || role === 'admin')) ? (
                         <button
                           onClick={() => setRevertirOp(op)}
@@ -1446,7 +1708,7 @@ export default function OperacionesPage({ role = 'trader', activeTab = 'bandeja'
       <AnularDirectoDrawer open={!!anularOp}   op={anularOp}   onClose={() => setAnularOp(null)}    onConfirmAnular={handleAnularDirecto} />
       <RevisarDrawer      open={!!revisarOp}   op={revisarOp}  onClose={() => setRevisarOp(null)}    onAprobar={handleAprobar} onRechazar={handleRechazar} />
       <VerDetalleDrawer open={!!verOp}  op={verOp}  onClose={() => setVerOp(null)} />
-      <EditarDrawer     open={!!editOp} op={editOp} onClose={() => setEditOp(null)} onGuardar={handleEditar} />
+      <EditarDrawer     open={!!editOp} op={editOp} ops={ops} onClose={() => setEditOp(null)} onGuardar={handleEditar} />
 
       {/* RF-17 — Drawer de Reapertura (solicitar) */}
       {revertirOp && (

@@ -52,9 +52,13 @@ export default function ReportesRegulatoriosPage({ activeTab, ops = [], tcSbsHis
     if (!hasPrereq) return
     setLoading(true)
     setTimeout(() => {
-      const filtered = ops.filter(o =>
-        o.fecha === selectedDate && ['liquidada', 'cerrada'].includes(o.estado)
-      )
+      const filtered = ops.filter(o => {
+        if (o.fecha !== selectedDate) return false
+        if (activeTab === 'bcrp_adelantado') {
+          return o.estado !== 'anulada'
+        }
+        return ['liquidada', 'cerrada'].includes(o.estado)
+      })
       setPreviewData(filtered.map(o => ({ ...o, _adj: 0 })))
       const totalUSD = filtered.reduce((acc, o) => acc + o.montoUSD, 0)
       setAggregates({ totalUSD, count: filtered.length })

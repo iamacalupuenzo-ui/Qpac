@@ -1,8 +1,8 @@
 import { useState, useRef } from 'react'
 import {
   ArrowLeft, Check, ChevronRight,
-  AlertTriangle, Info, Upload, FileText, Trash2,
-  CheckCircle2, Clock, ShieldCheck, Eye,
+  AlertTriangle, Upload, FileText, Trash2,
+  CheckCircle2, Clock, ShieldCheck, Eye, XCircle,
 } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -154,11 +154,12 @@ function Step1({ op }) {
         <ResumenRow label="Monto PEN"       value={fmtMoney(op.montoPEN, 'S/')} />
       </ResumenCard>
 
-      <div className="flex items-start gap-2.5 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-        <Info size={13} className="text-blue-500 mt-0.5 shrink-0" />
-        <p className="text-xs text-blue-700">
-          Si la observación requiere cambiar el monto, TC o tipo de operación, debes <strong>anular esta operación</strong> y registrar una nueva desde la bandeja general.
-        </p>
+      <div className="flex items-start gap-2.5 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+        <AlertTriangle size={13} className="text-amber-500 mt-0.5 shrink-0" />
+        <div className="text-xs text-amber-700">
+          <p className="font-medium mb-1">Si la observación requiere cambiar el <strong>tipo de operación</strong> (compra ↔ venta), la operación debe anularse y registrarse nuevamente.</p>
+          <p>Para correcciones de monto, TC o cuentas, avanza al siguiente paso.</p>
+        </div>
       </div>
     </div>
   )
@@ -167,7 +168,7 @@ function Step1({ op }) {
 /* ══════════════════════════════════════════════
    STEP 2 — CORRECCIÓN (cuentas + docs adicionales)
 ══════════════════════════════════════════════ */
-function Step2({ op, ctaIngreso, setCtaIngreso, ctaEgreso, setCtaEgreso, files, setFiles, errors }) {
+function Step2({ op, ctaIngreso, setCtaIngreso, ctaEgreso, setCtaEgreso, files, setFiles, errors, editMonto, setEditMonto, editTc, setEditTc, deletedOriginals, setDeletedOriginals, onPreviewDoc }) {
   const fileInputRef = useRef(null)
 
   const monedaIngreso = op.tipo === 'compra' ? 'PEN' : 'USD'
@@ -189,7 +190,8 @@ function Step2({ op, ctaIngreso, setCtaIngreso, ctaEgreso, setCtaEgreso, files, 
 
   // Archivos previos que ya vienen de la operación
   const archivosExistentes = op.comprobantes ?? []
-  const totalArchivos = archivosExistentes.length + files.length
+  const archivosActivosCnt = archivosExistentes.filter((_, i) => !deletedOriginals.has(i)).length
+  const totalArchivos = archivosActivosCnt + files.length
 
   function handleFileChange(e) {
     const incoming = Array.from(e.target.files)
@@ -217,6 +219,31 @@ function Step2({ op, ctaIngreso, setCtaIngreso, ctaEgreso, setCtaEgreso, files, 
         <p className="text-xs text-gray-500">
           Corrige las cuentas QAPAQ si corresponde y adjunta documentación adicional solicitada por Back Office.
         </p>
+      </div>
+
+      {/* Datos de la operación — editables */}
+      <div>
+        <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-3">Datos editables de la operación</p>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Monto (USD)" hint="Modifica si el monto observado es incorrecto">
+            <input
+              type="number" step="0.01" min="0"
+              value={editMonto}
+              onChange={e => setEditMonto(e.target.value)}
+              placeholder="Ej: 50000.00"
+              className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm bg-white outline-none transition-all focus:border-amber-400 focus:ring-2 focus:ring-amber-50 font-mono"
+            />
+          </Field>
+          <Field label="TC pactado" hint="Tipo de cambio pactado con el cliente">
+            <input
+              type="number" step="0.001" min="0"
+              value={editTc}
+              onChange={e => setEditTc(e.target.value)}
+              placeholder="Ej: 3.742"
+              className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm bg-white outline-none transition-all focus:border-amber-400 focus:ring-2 focus:ring-amber-50 font-mono"
+            />
+          </Field>
+        </div>
       </div>
 
       {/* Cuentas QAPAQ */}
@@ -255,21 +282,38 @@ function Step2({ op, ctaIngreso, setCtaIngreso, ctaEgreso, setCtaEgreso, files, 
         {archivosExistentes.length > 0 && (
           <div className="mb-3 space-y-1">
             <p className="text-[11px] text-gray-400 mb-2">Comprobantes originales (enviados anteriormente):</p>
-            {archivosExistentes.map((f, i) => (
-              <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-100 bg-gray-50">
-                <FileText size={13} className="text-gray-400 shrink-0" />
-                <p className="text-xs text-gray-500 truncate">{f.name ?? `Comprobante ${i + 1}`}</p>
-                <div className="flex items-center gap-1 ml-auto shrink-0">
-                  <button 
-                    onClick={() => onPreviewDoc?.(f.name ?? `Comprobante ${i + 1}`)}
-                    className="p-1 rounded hover:bg-gray-200 text-gray-400 transition-colors"
-                  >
-                    <Eye size={13} />
-                  </button>
-                  <span className="text-[10px] text-gray-400">Original</span>
+            {archivosExistentes.map((f, i) => {
+              const isDeleted = deletedOriginals.has(i)
+              return (
+                <div key={i} className={clsx('flex items-center gap-2 px-3 py-2 rounded-lg border transition-all', isDeleted ? 'border-red-200 bg-red-50 opacity-50' : 'border-gray-100 bg-gray-50')}>
+                  <FileText size={13} className={clsx('shrink-0', isDeleted ? 'text-red-300' : 'text-gray-400')} />
+                  <p className={clsx('text-xs truncate', isDeleted ? 'text-red-400 line-through' : 'text-gray-500')}>{f.name ?? `Comprobante ${i + 1}`}</p>
+                  <div className="flex items-center gap-1 ml-auto shrink-0">
+                    {!isDeleted && (
+                      <button
+                        onClick={() => onPreviewDoc?.(f.name ?? `Comprobante ${i + 1}`)}
+                        className="p-1 rounded hover:bg-gray-200 text-gray-400 transition-colors"
+                      >
+                        <Eye size={13} />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setDeletedOriginals(prev => {
+                        const next = new Set(prev)
+                        if (next.has(i)) next.delete(i); else next.add(i)
+                        return next
+                      })}
+                      title={isDeleted ? 'Restaurar' : 'Eliminar comprobante'}
+                      className={clsx('p-1 rounded transition-colors', isDeleted ? 'hover:bg-red-100 text-red-400' : 'hover:bg-red-50 text-gray-300 hover:text-red-500')}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                    {!isDeleted && <span className="text-[10px] text-gray-400">Original</span>}
+                    {isDeleted && <span className="text-[10px] text-red-400">Eliminado</span>}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
 
@@ -322,12 +366,6 @@ function Step2({ op, ctaIngreso, setCtaIngreso, ctaEgreso, setCtaEgreso, files, 
         {errors?.cuentas && <p className="text-[11px] text-red-500 mt-1">{errors.cuentas}</p>}
       </div>
 
-      <div className="flex items-start gap-2.5 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-        <AlertTriangle size={13} className="text-amber-500 mt-0.5 shrink-0" />
-        <p className="text-xs text-amber-700">
-          Solo puedes editar las cuentas QAPAQ. Los datos de la operación (monto, TC, tipo) son de solo lectura.
-        </p>
-      </div>
     </div>
   )
 }
@@ -335,7 +373,7 @@ function Step2({ op, ctaIngreso, setCtaIngreso, ctaEgreso, setCtaEgreso, files, 
 /* ══════════════════════════════════════════════
    STEP 3 — REENVÍO (resumen + confirmación)
 ══════════════════════════════════════════════ */
-function Step3({ op, ctaIngreso, ctaEgreso, files }) {
+function Step3({ op, ctaIngreso, ctaEgreso, files, editMonto, editTc, deletedOriginals }) {
   const monedaIngreso = op.tipo === 'compra' ? 'PEN' : 'USD'
   const monedaEgreso  = op.tipo === 'compra' ? 'USD' : 'PEN'
 
@@ -348,7 +386,8 @@ function Step3({ op, ctaIngreso, ctaEgreso, files }) {
 
   const ctaIn  = optsIngreso.find(o => o.value === ctaIngreso)?.label
   const ctaOut = optsEgreso.find(o => o.value === ctaEgreso)?.label
-  const totalArchivos = (op.comprobantes?.length ?? 0) + files.length
+  const archivosExistentesActivos = (op.comprobantes ?? []).filter((_, i) => !deletedOriginals.has(i)).length
+  const totalArchivos = archivosExistentesActivos + files.length
 
   return (
     <div className="space-y-5">
@@ -362,8 +401,8 @@ function Step3({ op, ctaIngreso, ctaEgreso, files }) {
       <ResumenCard title="Operación">
         <ResumenRow label="ID"         value={op.id} mono />
         <ResumenRow label="Cliente"    value={op.clienteNombre} />
-        <ResumenRow label="Monto USD"  value={fmtMoney(op.montoUSD, '$')} />
-        <ResumenRow label="TC pactado" value={op.tc?.toFixed(3)} mono />
+        <ResumenRow label="Monto USD"  value={`$ ${parseFloat(editMonto || op.montoUSD).toLocaleString('es-PE', { minimumFractionDigits: 2 })}`} />
+        <ResumenRow label="TC pactado" value={parseFloat(editTc || op.tc).toFixed(3)} mono />
       </ResumenCard>
 
       <ResumenCard title="Cuentas QAPAQ actualizadas" accent>
@@ -375,6 +414,13 @@ function Step3({ op, ctaIngreso, ctaEgreso, files }) {
         <ResumenRow label="Total archivos adjuntos" value={`${totalArchivos} comprobante${totalArchivos !== 1 ? 's' : ''}`} />
         <ResumenRow label="Estado destino" value="Subsanada → Back Office" />
       </ResumenCard>
+
+      {deletedOriginals.size > 0 && (
+        <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+          <AlertTriangle size={13} className="text-amber-500 mt-0.5 shrink-0" />
+          <p className="text-xs text-amber-700">{deletedOriginals.size} comprobante(s) original(es) marcado(s) para eliminación.</p>
+        </div>
+      )}
 
       <div className="flex items-start gap-2.5 p-3 bg-green-50 border border-green-200 rounded-lg">
         <CheckCircle2 size={14} className="text-green-600 mt-0.5 shrink-0" />
@@ -389,13 +435,16 @@ function Step3({ op, ctaIngreso, ctaEgreso, files }) {
 /* ══════════════════════════════════════════════
    MAIN WIZARD
 ══════════════════════════════════════════════ */
-export default function SubsanacionWizard({ op, onBack, onSubsanar, onPreviewDoc }) {
+export default function SubsanacionWizard({ op, onBack, onSubsanar, onPreviewDoc, onAnular }) {
   const [step,       setStep]       = useState(1)
   const [ctaIngreso, setCtaIngreso] = useState(op?.cuentaQpaqIn  || '')
   const [ctaEgreso,  setCtaEgreso]  = useState(op?.cuentaQpaqOut || '')
   const [files,      setFiles]      = useState([])
   const [errors,     setErrors]     = useState({})
   const [loading,    setLoading]    = useState(false)
+  const [deletedOriginals, setDeletedOriginals] = useState(new Set())
+  const [editMonto, setEditMonto] = useState(String(op?.montoUSD ?? ''))
+  const [editTc,    setEditTc]    = useState(String(op?.tc ?? ''))
 
   if (!op) return null
 
@@ -423,7 +472,12 @@ export default function SubsanacionWizard({ op, onBack, onSubsanar, onPreviewDoc
   function handleSubsanar() {
     setLoading(true)
     setTimeout(() => {
-      onSubsanar(op.id, { ctaIngreso, ctaEgreso, files })
+      onSubsanar(op.id, {
+        ctaIngreso, ctaEgreso, files,
+        montoUSD: parseFloat(editMonto) || op.montoUSD,
+        tc: parseFloat(editTc) || op.tc,
+        deletedOriginals: Array.from(deletedOriginals),
+      })
       setLoading(false)
     }, 1000)
   }
@@ -457,6 +511,10 @@ export default function SubsanacionWizard({ op, onBack, onSubsanar, onPreviewDoc
               ctaEgreso={ctaEgreso}   setCtaEgreso={setCtaEgreso}
               files={files}           setFiles={setFiles}
               errors={errors}
+              editMonto={editMonto}   setEditMonto={setEditMonto}
+              editTc={editTc}         setEditTc={setEditTc}
+              deletedOriginals={deletedOriginals} setDeletedOriginals={setDeletedOriginals}
+              onPreviewDoc={onPreviewDoc}
             />
           )}
           {step === 3 && (
@@ -465,6 +523,9 @@ export default function SubsanacionWizard({ op, onBack, onSubsanar, onPreviewDoc
               ctaIngreso={ctaIngreso}
               ctaEgreso={ctaEgreso}
               files={files}
+              editMonto={editMonto}
+              editTc={editTc}
+              deletedOriginals={deletedOriginals}
             />
           )}
         </div>
@@ -478,6 +539,15 @@ export default function SubsanacionWizard({ op, onBack, onSubsanar, onPreviewDoc
         >
           <ArrowLeft size={15} /> {step === 1 ? 'Cancelar' : 'Anterior'}
         </button>
+
+        {(step === 1 || step === 2) && onAnular && (
+          <button
+            onClick={() => onAnular(op.id)}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-red-200 text-red-600 text-sm font-medium hover:bg-red-50 transition-all"
+          >
+            <XCircle size={14} /> Anular operación
+          </button>
+        )}
 
         {step < 3 && (
           <button

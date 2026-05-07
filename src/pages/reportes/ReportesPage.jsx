@@ -55,11 +55,11 @@ const REPORT_DEFS = {
     ],
   },
   op_trader: {
-    cols: ['Trader', 'Compra (Ops)', 'Venta (Ops)', 'Total USD', 'Spread Prom.'],
+    cols: ['Trader', 'Compra (Ops)', 'Venta (Ops)', 'Total USD', 'Spread (×10K)'],
     rows: [
-      ['Marco Quispe L.', '14 ops – $ 820,000', '8 ops – $ 320,000',  '$ 1,140,000', '0.0042'],
-      ['Ana Torres V.',   '9 ops – $ 450,000',  '11 ops – $ 480,000', '$ 930,000',   '0.0038'],
-      ['Luis Mendoza R.', '6 ops – $ 210,000',  '7 ops – $ 190,000',  '$ 400,000',   '0.0035'],
+      ['Marco Quispe L.', '14 ops – $ 820,000', '8 ops – $ 320,000',  '$ 1,140,000', '42.0'],
+      ['Ana Torres V.',   '9 ops – $ 450,000',  '11 ops – $ 480,000', '$ 930,000',   '38.0'],
+      ['Luis Mendoza R.', '6 ops – $ 210,000',  '7 ops – $ 190,000',  '$ 400,000',   '35.0'],
     ],
   },
   op_moneda: {
@@ -128,11 +128,11 @@ const REPORT_DEFS = {
     ],
   },
   utilidad: {
-    cols: ['Período', 'Compras USD', 'Ventas USD', 'Spread Prom.', 'Utilidad PEN'],
+    cols: ['Período', 'Compras USD', 'Ventas USD', 'Spread (×10K)', 'Utilidad PEN'],
     rows: [
-      ['Abril 2026 (MTD)', '$ 8,240,000.00', '$ 6,180,000.00', '0.0040', 'S/ 58,240.00'],
-      ['Marzo 2026',       '$ 9,120,000.00', '$ 7,450,000.00', '0.0038', 'S/ 61,180.00'],
-      ['Febrero 2026',     '$ 7,800,000.00', '$ 6,100,000.00', '0.0041', 'S/ 53,460.00'],
+      ['Abril 2026 (MTD)', '$ 8,240,000.00', '$ 6,180,000.00', '40.0', 'S/ 58,240.00'],
+      ['Marzo 2026',       '$ 9,120,000.00', '$ 7,450,000.00', '38.0', 'S/ 61,180.00'],
+      ['Febrero 2026',     '$ 7,800,000.00', '$ 6,100,000.00', '41.0', 'S/ 53,460.00'],
     ],
   },
   errores: {

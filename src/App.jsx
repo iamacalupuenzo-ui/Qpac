@@ -20,14 +20,28 @@ import AuditoriaPage from './pages/auditoria/AuditoriaPage'
 import CatalogosPage from './pages/admin/CatalogosPage'
 import ParametrosPage from './pages/admin/ParametrosPage'
 import Toast from './components/ui/Toast'
+import { CheckCircle2 } from 'lucide-react'
 import './index.css'
+
+function fmtDate(iso) {
+  if (!iso) return '—'
+  const [y, m, d] = iso.split('-')
+  return `${d}/${m}/${y}`
+}
+
+function nextBusinessDay(isoDate) {
+  const d = new Date(isoDate + 'T12:00:00')
+  d.setDate(d.getDate() + 1)
+  while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1)
+  return d.toISOString().split('T')[0]
+}
 
 /* ── Tabs / títulos admin ── */
 const ADMIN_TABS = {
   dashboard:  [{ id: 'resumen', label: 'Resumen' }, { id: 'actividad', label: 'Actividad reciente' }, { id: 'sistema', label: 'Estado del sistema' }],
   usuarios:   [{ id: 'registrados', label: 'Usuarios registrados' }, { id: 'roles', label: 'Roles y permisos' }],
   clientes:   [{ id: 'cartera', label: 'Cartera de clientes' }, { id: 'cuentas_bancarias', label: 'Cuentas bancarias' }, { id: 'convenios', label: 'Convenios y documentación' }, { id: 'arbol_trader', label: 'Árbol de Traders' }],
-  operaciones: [{ id: 'bandeja', label: 'Bandeja General' }, { id: 'pendientes_abono', label: 'Pendientes de Abono' }, { id: 'operaciones_observadas', label: 'Observadas' }, { id: 'revision_back_office', label: 'Revisión Back Office' }],
+  operaciones: [{ id: 'bandeja', label: 'Bandeja General' }, { id: 'pendientes_abono', label: 'Pendientes de Abono' }, { id: 'revision_back_office', label: 'Revisión Back Office' }, { id: 'operaciones_observadas', label: 'Observadas' }, { id: 'liquidadas', label: 'Liquidadas' }],
   catalogos:  [
     { id: 'mesas', label: 'Mesas de Dinero' },
     { id: 'monedas', label: 'Monedas Operadas' },
@@ -64,7 +78,7 @@ const ADMIN_TITLES = {
 const OPERATIVE_PAGE_TABS = {
   dashboard:   [],
   clientes:    [{ id: 'cartera', label: 'Cartera de clientes' }, { id: 'cuentas_bancarias', label: 'Cuentas bancarias' }, { id: 'convenios', label: 'Convenios y documentación' }, { id: 'arbol_trader', label: 'Árbol de Traders' }],
-  operaciones: [{ id: 'bandeja', label: 'Bandeja General' }, { id: 'pendientes_abono', label: 'Pendientes de Abono' }, { id: 'operaciones_observadas', label: 'Observadas' }, { id: 'revision_back_office', label: 'Revisión Back Office' }],
+  operaciones: [{ id: 'bandeja', label: 'Bandeja General' }, { id: 'pendientes_abono', label: 'Pendientes de Abono' }, { id: 'revision_back_office', label: 'Revisión Back Office' }, { id: 'operaciones_observadas', label: 'Observadas' }, { id: 'liquidadas', label: 'Liquidadas' }],
   posicion:   [{ id: 'posicion_fx', label: 'Posición FX' }, { id: 'saldos', label: 'Saldos Bancarios' }, { id: 'tc_sbs', label: 'TC SBS Referencial' }, { id: 'cierres', label: 'Cierre Diario' }, { id: 'conciliacion', label: 'Conciliación Bancaria' }],
   reportes:   [
     { id: 'internos', label: 'Operativos e Internos' },
@@ -160,6 +174,8 @@ function ComingSoon({ title }) {
 export default function App() {
   const [user,             setUser]            = useState(null)
   const [notification,     setNotification]    = useState(null)
+  const [cierreNotification, setCierreNotification] = useState(null)
+  const [operatingDate,    setOperatingDate]   = useState(new Date().toISOString().split('T')[0])
   
   /* Admin state */
   const [adminPage,        setAdminPage]        = useState('dashboard')
@@ -394,10 +410,16 @@ export default function App() {
 
   function handleCierreDiario(cierre) {
     setCierres(prev => [cierre, ...prev])
-    setOps(prev => prev.map(o => 
+    setOps(prev => prev.map(o =>
       (o.estado === 'liquidada' && o.fecha === cierre.fechaSoc) ? { ...o, estado: 'cerrada' } : o
     ))
     notify('Cierre diario completado. Operaciones consolidadas.')
+    const fechaCierre = cierre.fechaSoc || operatingDate
+    setCierreNotification({
+      fecha:     fechaCierre,
+      nextFecha: nextBusinessDay(fechaCierre),
+      opsCount:  cierre.opsLiquidadas ?? 0,
+    })
   }
 
   function handleReversionCierre(id, motivo) {
@@ -563,6 +585,8 @@ export default function App() {
       onNavigate={onNavigate}
       activeTab={activeTab}
       onTabChange={onTabChange}
+      marketData={marketData}
+      ops={ops}
     >
       {renderContent()}
       {notification && (
@@ -571,6 +595,51 @@ export default function App() {
           type={notification.type} 
           onClose={() => setNotification(null)} 
         />
+      )}
+
+      {/* ── Notificación Cierre de Día ── */}
+      {cierreNotification && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-blue-950/70 backdrop-blur-sm" />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" style={{ border: '1px solid var(--color-border)' }}>
+            {/* Banner superior */}
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-8 py-6 text-center">
+              <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-3">
+                <CheckCircle2 className="text-white" size={28} />
+              </div>
+              <h2 className="text-lg font-bold text-white">Día operativo concluido</h2>
+              <p className="text-blue-100 text-sm mt-1">QAPAQ FX — Cierre diario completado</p>
+            </div>
+
+            {/* Cuerpo */}
+            <div className="px-8 py-6 space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-gray-50 rounded-xl px-4 py-3 text-center" style={{ border: '1px solid var(--color-border)' }}>
+                  <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wide mb-1">Día cerrado</p>
+                  <p className="text-sm font-bold text-gray-900">{fmtDate(cierreNotification.fecha)}</p>
+                </div>
+                <div className="bg-blue-50 rounded-xl px-4 py-3 text-center" style={{ border: '1px solid #bfdbfe' }}>
+                  <p className="text-[10px] text-blue-500 font-semibold uppercase tracking-wide mb-1">Próximo día hábil</p>
+                  <p className="text-sm font-bold text-blue-700">{fmtDate(cierreNotification.nextFecha)}</p>
+                </div>
+              </div>
+
+              <p className="text-xs text-gray-500 text-center leading-relaxed">
+                Todas las operaciones liquidadas han sido consolidadas. El sistema está listo para iniciar el siguiente día hábil.
+              </p>
+
+              <button
+                onClick={() => {
+                  setOperatingDate(cierreNotification.nextFecha)
+                  setCierreNotification(null)
+                }}
+                className="w-full py-3 rounded-xl bg-blue-600 text-white font-bold text-sm hover:bg-blue-700 transition-colors"
+              >
+                Confirmar e iniciar {fmtDate(cierreNotification.nextFecha)}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── Modal de Confirmación de Salida ── */}

@@ -104,6 +104,13 @@ export default function TcSbsPage({ history = [], onUpdate, role, notify }) {
 
             <div className="px-5 py-5 space-y-5">
 
+              {isTodayReg && (
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-green-50 border border-green-200 mb-2">
+                  <CheckCircle2 size={13} className="text-green-600 shrink-0" />
+                  <p className="text-xs text-green-700 font-medium">TC SBS registrado para hoy. No se permiten modificaciones.</p>
+                </div>
+              )}
+
               {/* Campos T y T-1 */}
               <div className="grid grid-cols-2 gap-5">
                 <div>
@@ -113,7 +120,7 @@ export default function TcSbsPage({ history = [], onUpdate, role, notify }) {
                   <div className="relative">
                     <input
                       type="number" step="0.001"
-                      disabled={!canEdit || loading}
+                      disabled={!canEdit || loading || isTodayReg}
                       value={t}
                       onChange={e => setT(e.target.value)}
                       placeholder="3.742"
@@ -136,7 +143,7 @@ export default function TcSbsPage({ history = [], onUpdate, role, notify }) {
                   <div className="relative">
                     <input
                       type="number" step="0.001"
-                      disabled={!canEdit || loading}
+                      disabled={!canEdit || loading || isTodayReg}
                       value={tm1}
                       onChange={e => setTm1(e.target.value)}
                       placeholder="3.738"
@@ -183,7 +190,7 @@ export default function TcSbsPage({ history = [], onUpdate, role, notify }) {
                     Registro con trazabilidad completa
                   </div>
                   <button
-                    disabled={loading || !t || !tm1 || (isTodayReg && parseFloat(t) === latest.t && parseFloat(tm1) === latest.tMinus1)}
+                    disabled={loading || !t || !tm1 || isTodayReg}
                     onClick={() => handleSave()}
                     className={clsx(
                       'flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors disabled:opacity-40',
@@ -194,7 +201,7 @@ export default function TcSbsPage({ history = [], onUpdate, role, notify }) {
                   >
                     {loading ? <Clock size={14} className="animate-spin" /> :
                      success  ? <CheckCircle2 size={14} /> : <Save size={14} />}
-                    {isTodayReg ? 'Actualizar valores' : 'Confirmar e ingresar'}
+                    {'Confirmar e ingresar'}
                   </button>
                 </div>
               )}

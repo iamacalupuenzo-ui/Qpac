@@ -12,10 +12,12 @@ const TC_SBS_AYER = 3.738
    MOCK — Cuentas QAPAQ con límites (RF-03 configura)
 ══════════════════════════════════════════════ */
 const CUENTAS_QAPAQ_MOCK = [
-  { id: 'QP-PEN-1', banco: 'BCP',        numero: '191-9000003-0-01', moneda: 'PEN', limiteAlerta: 200_000, limiteCritico: 50_000  },
-  { id: 'QP-PEN-2', banco: 'Scotiabank', numero: '00-272-9000004',   moneda: 'PEN', limiteAlerta: 150_000, limiteCritico: 30_000  },
-  { id: 'QP-USD-1', banco: 'BCP',        numero: '191-9000001-0-01', moneda: 'USD', limiteAlerta: 100_000, limiteCritico: 20_000  },
-  { id: 'QP-USD-2', banco: 'Interbank',  numero: '200-9000002-001',  moneda: 'USD', limiteAlerta: 80_000,  limiteCritico: 15_000  },
+  { id: 'QP-PEN-1', banco: 'BCP',        numero: '191-9000003-0-01', moneda: 'PEN', tipo: 'operativa',   mesa: 'Mesa Alpha', limiteAlerta: 200_000, limiteCritico: 50_000  },
+  { id: 'QP-PEN-2', banco: 'Scotiabank', numero: '00-272-9000004',   moneda: 'PEN', tipo: 'operativa',   mesa: 'Mesa Beta',  limiteAlerta: 150_000, limiteCritico: 30_000  },
+  { id: 'QP-USD-1', banco: 'BCP',        numero: '191-9000001-0-01', moneda: 'USD', tipo: 'operativa',   mesa: 'Mesa Alpha', limiteAlerta: 100_000, limiteCritico: 20_000  },
+  { id: 'QP-USD-2', banco: 'Interbank',  numero: '200-9000002-001',  moneda: 'USD', tipo: 'operativa',   mesa: 'Mesa Beta',  limiteAlerta: 80_000,  limiteCritico: 15_000  },
+  { id: 'QP-TRANS-PEN', banco: 'BCP',    numero: '191-9000099-0-01', moneda: 'PEN', tipo: 'transitoria', mesa: '—',          limiteAlerta: undefined, limiteCritico: undefined },
+  { id: 'QP-TRANS-USD', banco: 'Interbank', numero: '200-9000099-001', moneda: 'USD', tipo: 'transitoria', mesa: '—',       limiteAlerta: undefined, limiteCritico: undefined },
 ]
 
 /* ══════════════════════════════════════════════
@@ -205,6 +207,14 @@ function FilaCuenta({ cuenta, bolsa, ops, tcSbs, ajustes, role, onBolsaAction })
         <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{cuenta.moneda}</span>
       </td>
 
+      {/* Tipo */}
+      <td className="px-4 py-3">
+        <span className={clsx('text-[10px] font-bold px-2 py-0.5 rounded-full',
+          cuenta.tipo === 'transitoria' ? 'bg-violet-50 text-violet-600' : 'bg-gray-100 text-gray-600')}>
+          {cuenta.tipo ?? 'operativa'}
+        </span>
+      </td>
+
       {/* Bolsa inicial */}
       <td className="px-4 py-3 text-xs text-right">
         {sinBolsa ? (
@@ -216,12 +226,12 @@ function FilaCuenta({ cuenta, bolsa, ops, tcSbs, ajustes, role, onBolsaAction })
 
       {/* Ingresos */}
       <td className="px-4 py-3 text-xs font-medium text-green-700 text-right">
-        {sinBolsa ? '—' : `+ ${fmtMoney(ingresos)}`}
+        {ingresos > 0 ? `+ ${fmtMoney(ingresos)}` : <span className="text-gray-300">0.00</span>}
       </td>
 
       {/* Salidas */}
       <td className="px-4 py-3 text-xs font-medium text-red-600 text-right">
-        {sinBolsa ? '—' : `− ${fmtMoney(salidas)}`}
+        {salidas > 0 ? `− ${fmtMoney(salidas)}` : <span className="text-gray-300">0.00</span>}
       </td>
 
       {/* Disponible neto */}
@@ -283,6 +293,9 @@ export default function SaldosBancariosPage({ ops = [], marketData, tcSbs, ajust
   const [isAjuste,    setIsAjuste]    = useState(false)
   const [showAdjDrawer, setShowAdjDrawer] = useState(false)
   const [lastRefresh, setLastRefresh] = useState(new Date())
+  const [filtroEntidad, setFiltroEntidad] = useState('Todas')
+  const [filtroEstado,  setFiltroEstado]  = useState('todos')
+  const [filtroMesa,    setFiltroMesa]    = useState('Todas')
 
   const actualTcSbs = tcSbs?.t
   const esTesorer = role === 'tesoreria' || role === 'admin'
@@ -307,6 +320,10 @@ export default function SaldosBancariosPage({ ops = [], marketData, tcSbs, ajust
     setDrawerCta(null)
     notify?.(isAjuste ? `Ajuste de bolsa para ${drawerCta.banco} guardado correctamente.` : `Bolsa inicial para ${drawerCta.banco} registrada.`)
   }
+
+  const bancoOpts  = ['Todas', ...Array.from(new Set(CUENTAS_QAPAQ_MOCK.map(c => c.banco)))]
+  const mesaOpts   = ['Todas', ...Array.from(new Set(CUENTAS_QAPAQ_MOCK.map(c => c.mesa))).filter(m => m !== '—')]
+  const estadoOpts = ['todos', 'verde', 'amarillo', 'rojo', 'sin_config']
 
   // Alertas activas
   const alertas = CUENTAS_QAPAQ_MOCK.filter(c => {
@@ -376,7 +393,7 @@ export default function SaldosBancariosPage({ ops = [], marketData, tcSbs, ajust
             <h3 className="text-sm font-bold text-gray-900">Saldos por cuenta QAPAQ</h3>
             <p className="text-xs text-gray-400 mt-0.5">
               Disponible neto = Bolsa inicial + Ingresos + Ajustes manuales − Salidas ·
-              Actualizado: {lastRefresh.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
+              Actualizado: {lastRefresh.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })} (auto-refresh 30s)
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -394,6 +411,31 @@ export default function SaldosBancariosPage({ ops = [], marketData, tcSbs, ajust
           </div>
         </div>
 
+        {/* Filtros */}
+        <div className="px-5 py-3 border-b flex items-center gap-3 flex-wrap" style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-bg)' }}>
+          <span className="text-[11px] text-gray-400 font-medium">Filtrar:</span>
+          <select value={filtroEntidad} onChange={e => setFiltroEntidad(e.target.value)}
+            className="px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs bg-white outline-none focus:border-blue-400 transition-all">
+            {bancoOpts.map(b => <option key={b} value={b}>{b}</option>)}
+          </select>
+          <select value={filtroMesa} onChange={e => setFiltroMesa(e.target.value)}
+            className="px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs bg-white outline-none focus:border-blue-400 transition-all">
+            {mesaOpts.map(m => <option key={m} value={m}>{m === 'Todas' ? 'Todas las mesas' : m}</option>)}
+          </select>
+          <select value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)}
+            className="px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs bg-white outline-none focus:border-blue-400 transition-all">
+            <option value="todos">Todos los estados</option>
+            <option value="verde">Normal</option>
+            <option value="amarillo">Alerta</option>
+            <option value="rojo">Crítico</option>
+            <option value="sin_config">Sin límites</option>
+          </select>
+          {(filtroEntidad !== 'Todas' || filtroMesa !== 'Todas' || filtroEstado !== 'todos') && (
+            <button onClick={() => { setFiltroEntidad('Todas'); setFiltroMesa('Todas'); setFiltroEstado('todos') }}
+              className="text-[11px] text-blue-600 hover:underline">Limpiar filtros</button>
+          )}
+        </div>
+
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
@@ -401,6 +443,7 @@ export default function SaldosBancariosPage({ ops = [], marketData, tcSbs, ajust
                 <th className="px-4 py-2.5 w-8" />
                 <th className="px-4 py-2.5 text-xs font-semibold text-gray-500">Cuenta</th>
                 <th className="px-4 py-2.5 text-xs font-semibold text-gray-500">Moneda</th>
+                <th className="px-4 py-2.5 text-xs font-semibold text-gray-500">Tipo</th>
                 <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 text-right">Bolsa inicial</th>
                 <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 text-right">+ Ingresos</th>
                 <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 text-right">− Salidas</th>
@@ -411,7 +454,19 @@ export default function SaldosBancariosPage({ ops = [], marketData, tcSbs, ajust
               </tr>
             </thead>
             <tbody>
-              {CUENTAS_QAPAQ_MOCK.map(c => (
+              {CUENTAS_QAPAQ_MOCK.filter(c => {
+                const matchEntidad = filtroEntidad === 'Todas' || c.banco === filtroEntidad
+                const matchMesa    = filtroMesa    === 'Todas' || c.mesa === filtroMesa
+                if (!matchEntidad || !matchMesa) return false
+                if (filtroEstado !== 'todos') {
+                  const b = bolsas[c.id]
+                  const { ingresos, salidas } = calcMovimientos(ops, c.id, c.moneda, ajustes)
+                  const disp = b !== undefined ? b + ingresos - salidas : null
+                  const est  = disp !== null ? semaforo(disp, c.limiteAlerta, c.limiteCritico) : 'sin_config'
+                  if (est !== filtroEstado) return false
+                }
+                return true
+              }).map(c => (
                 <FilaCuenta
                   key={c.id}
                   cuenta={c}

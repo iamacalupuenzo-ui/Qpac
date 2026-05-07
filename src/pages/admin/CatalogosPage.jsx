@@ -55,7 +55,7 @@ const CATALOG_DEFS = {
       { key: 'nombre', label: 'Nombre',         type: 'text',   required: true  },
       { key: 'tipo',   label: 'Tipo de entidad',type: 'select', required: true,
         options: ['Banco múltiple', 'Banco estatal', 'Caja municipal', 'Caja rural', 'Financiera'] },
-      { key: 'ruc',    label: 'RUC',            type: 'text',   hint: '11 dígitos' },
+      { key: 'ruc',    label: 'RUC',            type: 'text',   hint: '11 dígitos exactos', maxLength: 11 },
     ],
     data: [
       { id: 'B-001', codigo: 'BCP',  nombre: 'Banco de Crédito del Perú',     tipo: 'Banco múltiple',  ruc: '20100047218', activo: true  },
@@ -258,6 +258,13 @@ function CatalogDrawer({ open, item, def, onClose, onSave }) {
     def.formFields.filter(f => f.required).forEach(f => {
       if (!form[f.key] && form[f.key] !== 0) e[f.key] = 'Campo obligatorio'
     })
+    // Validar maxLength para campos no requeridos pero que tienen maxLength
+    def.formFields.filter(f => f.maxLength && form[f.key]).forEach(f => {
+      if (String(form[f.key]).length > f.maxLength) e[f.key] = `Máximo ${f.maxLength} caracteres`
+      if (f.key === 'ruc' && form[f.key] && String(form[f.key]).length !== f.maxLength && String(form[f.key]).length > 0) {
+        e[f.key] = `El RUC debe tener exactamente ${f.maxLength} dígitos`
+      }
+    })
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -318,6 +325,7 @@ function CatalogDrawer({ open, item, def, onClose, onSave }) {
                 <input type="text" value={form[f.key] ?? ''}
                   onChange={e => setField(f.key, e.target.value)}
                   placeholder={f.hint}
+                  maxLength={f.maxLength}
                   className={inputCls(errors[f.key])} />
               )}
 

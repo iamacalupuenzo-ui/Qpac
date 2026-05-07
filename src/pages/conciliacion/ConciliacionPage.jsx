@@ -56,12 +56,12 @@ export default function ConciliacionPage({ role }) {
     },
     {
       label: 'Cuadratura A',
-      value: quadA.valor !== '' ? (isDiferenciaA ? `Δ ${quadA.valor}` : 'OK') : '—',
+      value: quadA.valor !== '' ? (isDiferenciaA ? `Δ ${parseFloat(quadA.valor).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'OK') : '—',
       color: isDiferenciaA ? 'text-amber-600' : quadA.valor !== '' ? 'text-green-600' : 'text-gray-400',
     },
     {
       label: 'Cuadratura B',
-      value: quadB.valor !== '' ? (isDiferenciaB ? `Δ ${quadB.valor}` : 'OK') : '—',
+      value: quadB.valor !== '' ? (isDiferenciaB ? `Δ ${parseFloat(quadB.valor).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'OK') : '—',
       color: isDiferenciaB ? 'text-amber-600' : quadB.valor !== '' ? 'text-green-600' : 'text-gray-400',
     },
     {
@@ -158,22 +158,37 @@ export default function ConciliacionPage({ role }) {
             </div>
 
             {isDiferenciaA && (
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-medium text-gray-700">
-                    Descripción de la diferencia <span className="text-red-400">*</span>
-                  </label>
-                  <span className={clsx('text-[11px] font-medium', quadA.desc.length >= 20 ? 'text-green-600' : 'text-gray-400')}>
-                    {quadA.desc.length}/20
-                  </span>
+              <div className="space-y-4">
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-medium text-gray-700">
+                      Descripción de la diferencia <span className="text-red-400">*</span>
+                    </label>
+                    <span className={clsx('text-[11px] font-medium', quadA.desc.length >= 20 ? 'text-green-600' : 'text-gray-400')}>
+                      {quadA.desc.length}/20
+                    </span>
+                  </div>
+                  <textarea
+                    rows={3}
+                    value={quadA.desc}
+                    onChange={e => setQuadA({ ...quadA, desc: e.target.value })}
+                    placeholder="Describe el origen de esta diferencia contable..."
+                    className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all resize-none bg-white"
+                  />
                 </div>
-                <textarea
-                  rows={3}
-                  value={quadA.desc}
-                  onChange={e => setQuadA({ ...quadA, desc: e.target.value })}
-                  placeholder="Describe el origen de esta diferencia contable..."
-                  className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all resize-none bg-white"
-                />
+                {/* Upload de imagen para evidencia */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                    Imagen de evidencia <span className="text-gray-400 font-normal">(opcional — PNG, JPG)</span>
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg"
+                    onChange={() => {}}
+                    className="block w-full text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-all cursor-pointer"
+                  />
+                  <p className="text-[11px] text-gray-400 mt-1">Adjunta captura del estado de cuenta o comprobante que explique la diferencia.</p>
+                </div>
               </div>
             )}
           </div>
@@ -215,22 +230,37 @@ export default function ConciliacionPage({ role }) {
             </div>
 
             {isDiferenciaB && (
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-medium text-gray-700">
-                    Descripción de la diferencia <span className="text-red-400">*</span>
-                  </label>
-                  <span className={clsx('text-[11px] font-medium', quadB.desc.length >= 20 ? 'text-green-600' : 'text-gray-400')}>
-                    {quadB.desc.length}/20
-                  </span>
+              <div className="space-y-4">
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-medium text-gray-700">
+                      Descripción de la diferencia <span className="text-red-400">*</span>
+                    </label>
+                    <span className={clsx('text-[11px] font-medium', quadB.desc.length >= 20 ? 'text-green-600' : 'text-gray-400')}>
+                      {quadB.desc.length}/20
+                    </span>
+                  </div>
+                  <textarea
+                    rows={3}
+                    value={quadB.desc}
+                    onChange={e => setQuadB({ ...quadB, desc: e.target.value })}
+                    placeholder="Describe el origen de esta diferencia contable..."
+                    className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all resize-none bg-white"
+                  />
                 </div>
-                <textarea
-                  rows={3}
-                  value={quadB.desc}
-                  onChange={e => setQuadB({ ...quadB, desc: e.target.value })}
-                  placeholder="Describe el origen de esta diferencia contable..."
-                  className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all resize-none bg-white"
-                />
+                {/* Upload de imagen para evidencia */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                    Imagen de evidencia <span className="text-gray-400 font-normal">(opcional — PNG, JPG)</span>
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg"
+                    onChange={() => {}}
+                    className="block w-full text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-all cursor-pointer"
+                  />
+                  <p className="text-[11px] text-gray-400 mt-1">Adjunta captura del estado de cuenta o comprobante que explique la diferencia.</p>
+                </div>
               </div>
             )}
           </div>

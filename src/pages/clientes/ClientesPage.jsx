@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import {
   Search, Plus, Building2, User, Briefcase, Shield,
   ChevronLeft, ChevronRight, Eye, Ban, AlertTriangle,
-  Check, X, Filter, ChevronDown,
+  Check, X, Filter, ChevronDown, UserCheck,
 } from 'lucide-react'
 import clsx from 'clsx'
 import CuentasBancariasTab from './CuentasBancariasTab'
@@ -128,7 +128,7 @@ export default function ClientesPage({ onNuevoCliente, onVerCliente, activeTab, 
   const [dateTo,       setDateTo]       = useState('')
   const [page,         setPage]         = useState(1)
   const [confirmInhabilitar, setConfirmInhabilitar] = useState(null)
-
+  const [confirmHabilitar,   setConfirmHabilitar]   = useState(null)
 
   function handleConfirmarInhabilitar() {
     if (!confirmInhabilitar) return
@@ -136,6 +136,14 @@ export default function ClientesPage({ onNuevoCliente, onVerCliente, activeTab, 
       c.id === confirmInhabilitar.id ? { ...c, estado: 'no_habilitado' } : c
     ))
     setConfirmInhabilitar(null)
+  }
+
+  function handleConfirmarHabilitar() {
+    if (!confirmHabilitar) return
+    setClientes(prev => prev.map(c =>
+      c.id === confirmHabilitar.id ? { ...c, estado: 'activo' } : c
+    ))
+    setConfirmHabilitar(null)
   }
 
   /* Stats */
@@ -322,6 +330,7 @@ export default function ClientesPage({ onNuevoCliente, onVerCliente, activeTab, 
                   cliente={c}
                   onVer={onVerCliente}
                   onInhabilitar={c.estado !== 'no_habilitado' ? () => setConfirmInhabilitar(c) : null}
+                  onHabilitar={c.estado === 'no_habilitado'   ? () => setConfirmHabilitar(c)   : null}
                 />
               ))
             )}
@@ -345,6 +354,42 @@ export default function ClientesPage({ onNuevoCliente, onVerCliente, activeTab, 
           </div>
         )}
       </div>
+
+      {/* Modal confirmación habilitar */}
+      {confirmHabilitar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/30" onClick={() => setConfirmHabilitar(null)} />
+          <div className="relative bg-white rounded-xl shadow-xl p-6 w-96" style={{ border: '1px solid var(--color-border)' }}>
+            <div className="flex items-start gap-3 mb-4">
+              <div className="p-2 rounded-lg bg-green-50 shrink-0">
+                <UserCheck size={18} className="text-green-600" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 mb-0.5">Habilitar cliente</h3>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  ¿Confirmas habilitar a <span className="font-semibold text-gray-700">{confirmHabilitar.nombre}</span>? El cliente volverá al estado <span className="font-semibold">Activo</span> y podrá operar con normalidad.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-50 mb-5" style={{ border: '1px solid #93c5fd' }}>
+              <AlertTriangle size={12} className="text-blue-500 shrink-0" />
+              <p className="text-[11px] text-blue-700">Esta acción quedará registrada en el historial de auditoría.</p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleConfirmarHabilitar}
+                className="flex-1 py-2.5 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-semibold transition-colors">
+                Confirmar habilitación
+              </button>
+              <button
+                onClick={() => setConfirmHabilitar(null)}
+                className="px-4 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal confirmación inhabilitar */}
       {confirmInhabilitar && (
@@ -386,7 +431,7 @@ export default function ClientesPage({ onNuevoCliente, onVerCliente, activeTab, 
 }
 
 /* ═══ ROW ══════════════════════════════════════════════════ */
-function ClienteRow({ cliente: c, onVer, onInhabilitar }) {
+function ClienteRow({ cliente: c, onVer, onInhabilitar, onHabilitar }) {
   return (
     <tr className="group border-b last:border-0 hover:bg-gray-50/60 transition-colors"
       style={{ borderColor: 'var(--color-border)' }}>
@@ -429,16 +474,16 @@ function ClienteRow({ cliente: c, onVer, onInhabilitar }) {
             className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors">
             <Eye size={14} />
           </button>
-          {onInhabilitar ? (
+          {onHabilitar ? (
+            <button title="Habilitar cliente" onClick={onHabilitar}
+              className="p-1.5 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50 transition-colors">
+              <UserCheck size={14} />
+            </button>
+          ) : (
             <button title="Inhabilitar cliente" onClick={onInhabilitar}
               className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors">
               <Ban size={14} />
             </button>
-          ) : (
-            <span title="Cliente ya inhabilitado"
-              className="p-1.5 rounded-lg text-gray-200 cursor-not-allowed">
-              <Ban size={14} />
-            </span>
           )}
         </div>
       </td>

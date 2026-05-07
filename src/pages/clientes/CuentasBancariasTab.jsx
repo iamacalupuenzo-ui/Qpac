@@ -20,11 +20,11 @@ const MOCK_BANCOS = [
 ]
 
 const CLIENTES_ACTIVOS = [
-  { value: 'CLI-001', label: 'María González Paredes (CLI-001)',        nombre: 'María González Paredes' },
-  { value: 'CLI-002', label: 'Exportaciones Lima S.A.C. (CLI-002)',     nombre: 'Exportaciones Lima S.A.C.' },
-  { value: 'CLI-003', label: 'Banco Americano del Perú S.A. (CLI-003)', nombre: 'Banco Americano del Perú S.A.' },
-  { value: 'CLI-004', label: 'Roberto Sánchez Vidal (CLI-004)',         nombre: 'Roberto Sánchez Vidal' },
-  { value: 'CLI-007', label: 'Minera Andina S.A. (CLI-007)',            nombre: 'Minera Andina S.A.' },
+  { value: 'CLI-001', label: 'María González Paredes (CLI-001)',        nombre: 'María González Paredes',        doi: '43210987'    },
+  { value: 'CLI-002', label: 'Exportaciones Lima S.A.C. (CLI-002)',     nombre: 'Exportaciones Lima S.A.C.',     doi: '20512345678' },
+  { value: 'CLI-003', label: 'Banco Americano del Perú S.A. (CLI-003)', nombre: 'Banco Americano del Perú S.A.', doi: '20123456789' },
+  { value: 'CLI-004', label: 'Roberto Sánchez Vidal (CLI-004)',         nombre: 'Roberto Sánchez Vidal',         doi: '38765432'    },
+  { value: 'CLI-007', label: 'Minera Andina S.A. (CLI-007)',            nombre: 'Minera Andina S.A.',            doi: '20345678901' },
 ]
 
 /* Clients that have an active agreement/authorization letter (for third-party account rule) */
@@ -703,7 +703,12 @@ export default function CuentasBancariasTab({ clienteId, clienteNombre }) {
   const q = search.trim().toLowerCase()
   const filtered = cuentas.filter(c => {
     if (clienteId && c.clienteId !== clienteId) return false
-    if (q && !c.clienteNombre.toLowerCase().includes(q) && !c.numeroCuenta.includes(q) && !c.id.toLowerCase().includes(q) && !c.banco.toLowerCase().includes(q)) return false
+    if (q) {
+      const doi = CLIENTES_ACTIVOS.find(cl => cl.value === c.clienteId)?.doi ?? ''
+      if (!c.clienteNombre.toLowerCase().includes(q) && !c.numeroCuenta.includes(q) &&
+          !c.id.toLowerCase().includes(q) && !c.banco.toLowerCase().includes(q) &&
+          !doi.includes(q)) return false
+    }
     if (filterCliente && c.clienteId    !== filterCliente) return false
     if (filterBanco   && c.banco        !== filterBanco)   return false
     if (filterMoneda  && c.moneda       !== filterMoneda)  return false
@@ -735,12 +740,14 @@ export default function CuentasBancariasTab({ clienteId, clienteNombre }) {
 
   function handleSave(form) {
     if (editingCuenta) {
+      const eraVerificada = editingCuenta.verificacion === 'verificada'
       setCuentas(cs => cs.map(c => c.id === editingCuenta.id
         ? { ...c, banco: form.banco, tipoCuenta: form.tipoCuenta, moneda: form.moneda,
             numeroCuenta: form.numeroCuenta, cci: form.cci || null,
             plaza: form.plaza, titularidad: form.titularidad,
             nombreTercero: form.titularidad === 'tercero' ? form.nombreTercero : null,
-            estado: form.estado }
+            estado: form.estado,
+            ...(eraVerificada && { verificacion: 'pendiente', verificadoPor: null, fechaVerificacion: null }) }
         : c
       ))
     } else {

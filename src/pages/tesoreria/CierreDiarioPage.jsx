@@ -30,7 +30,7 @@ export default function CierreDiarioPage({ ops = [], tcSbs = {}, cierres = [], o
   const opsLiquidadas = ops.filter(o => o.estado === 'liquidada' && o.fecha === todayISO)
   const opsPendientes = ops.filter(o => ['reservada', 'en_revision', 'observada', 'subsanada'].includes(o.estado) && o.fecha === todayISO)
   const isCierreDone  = cierres.some(c => c.fechaSoc === todayISO && c.estado === 'cerrado')
-  const canClose      = hasTcSbs && opsLiquidadas.length > 0 && !isCierreDone
+  const canClose      = hasTcSbs && opsLiquidadas.length > 0 && !isCierreDone && opsPendientes.length === 0
   const isJefe        = role === 'head' || role === 'jefe' || role === 'admin'
 
   const resumen = opsLiquidadas.reduce((acc, op) => {

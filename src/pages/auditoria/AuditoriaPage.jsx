@@ -64,6 +64,7 @@ export default function AuditoriaPage({ role }) {
   const [search,   setSearch]   = useState('')
   const [modFil,   setModFil]   = useState('Todos')
   const [resFil,   setResFil]   = useState('todos')
+  const [dateFil,  setDateFil]  = useState('')
   const [page,     setPage]     = useState(1)
   const [pageSize, setPageSize] = useState(10)
 
@@ -79,7 +80,8 @@ export default function AuditoriaPage({ role }) {
     const matchQ   = !search || [l.id, l.user, l.modulo, l.accion, l.objeto, l.detalle].some(v => v.toLowerCase().includes(q))
     const matchMod = modFil === 'Todos' || l.modulo === modFil
     const matchRes = resFil === 'todos'  || l.resultado === resFil
-    return matchQ && matchMod && matchRes
+    const matchDate = !dateFil || l.ts.startsWith(dateFil)
+    return matchQ && matchMod && matchRes && matchDate
   })
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
@@ -145,6 +147,14 @@ export default function AuditoriaPage({ role }) {
             >
               {ALL_MODULES.map(m => <option key={m} value={m}>{m}</option>)}
             </select>
+            {/* Date filter */}
+            <input
+              type="date"
+              value={dateFil}
+              onChange={e => { setDateFil(e.target.value); resetPage() }}
+              className={clsx(selCls, 'border')}
+              style={{ border: '1px solid var(--color-border)' }}
+            />
             {/* Result filter */}
             <select
               value={resFil}

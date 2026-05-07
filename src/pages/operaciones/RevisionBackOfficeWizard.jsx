@@ -8,6 +8,46 @@ import {
 import clsx from 'clsx'
 
 /* ══════════════════════════════════════════════
+   CATÁLOGOS DE LOOKUP
+══════════════════════════════════════════════ */
+const QAPAQ_DISPLAY = {
+  'QP-USD-1': 'BCP · 191-9000001-0-01 (USD)',
+  'QP-USD-2': 'Interbank · 200-9000002-001 (USD)',
+  'QP-PEN-1': 'BCP · 191-9000003-0-01 (PEN)',
+  'QP-PEN-2': 'Scotiabank · 00-272-9000004 (PEN)',
+}
+
+const CUENTAS_DISPLAY = {
+  'CTA-001': 'BCP · 191-1234567-0-12 (USD)',
+  'CTA-002': 'Interbank · 200-3000123456 (PEN)',
+  'CTA-003': 'Scotia · 00-272-123456789 (USD)',
+  'CTA-010': 'BBVA · 0011-0111-11-0100075234 (USD)',
+  'CTA-011': 'BCP · 191-2345678-0-45 (PEN)',
+  'CTA-020': 'BCP · 191-5000001-0-88 (PEN)',
+  'CTA-021': 'BBVA · 0011-0222-22-0100088001 (USD)',
+  'CTA-030': 'BCP · 191-3000001-0-55 (USD)',
+  'CTA-031': 'BCP · 191-3000002-0-11 (PEN)',
+  'CTA-040': 'Scotiabank · 00-272-4000001 (PEN)',
+  'CTA-041': 'BBVA · 0011-0444-44-0100044001 (USD)',
+  'CTA-050': 'BCP · 191-5000001-0-88 (PEN)',
+  'CTA-051': 'BBVA · 0011-0222-22-0100088001 (USD)',
+  'CTA-060': 'BCP · 191-6000001-0-22 (PEN)',
+  'CTA-061': 'Interbank · 200-6000012-001 (USD)',
+  transitoria: 'Cuenta transitoria QAPAQ',
+}
+
+const CAUSAS_OBSERVACION = [
+  { id: 'voucher_ilegible',  label: 'Voucher ilegible o de mala calidad' },
+  { id: 'monto_incorrecto',  label: 'Monto del voucher no coincide con la operación' },
+  { id: 'cuenta_incorrecta', label: 'Cuenta destino incorrecta' },
+  { id: 'tc_incorrecto',     label: 'TC no corresponde a lo pactado' },
+  { id: 'datos_cliente',     label: 'Datos del cliente no coinciden' },
+  { id: 'fecha_incorrecta',  label: 'Voucher de fecha incorrecta' },
+  { id: 'firma_faltante',    label: 'Firma o sello faltante en el documento' },
+  { id: 'doble_pago',        label: 'Posible pago duplicado detectado' },
+]
+
+/* ══════════════════════════════════════════════
    HELPERS
 ══════════════════════════════════════════════ */
 function fmtMoney(n, m = '') {
@@ -94,51 +134,98 @@ function InfoCard({ children, bg = 'blue' }) {
 /* ══════════════════════════════════════════════
    STEP 1 — REVISIÓN
 ══════════════════════════════════════════════ */
-function Step1({ op }) {
+function Step1({ op, onPreviewDoc }) {
   const historialObs = (op.historial ?? []).filter(h => h.tipo === 'observacion' || h.tipo === 'subsanacion')
+  const monedaDestino = op.tipo === 'compra' ? 'PEN' : 'USD'
 
   return (
     <div className="space-y-5">
       <div>
         <h3 className="text-sm font-semibold text-gray-900 mb-1">Revisión de operación</h3>
         <p className="text-xs text-gray-500">
-          Revisa los datos de la operación, las cuentas QAPAQ y los comprobantes adjuntos antes de tomar tu decisión.
+          Revisa los datos, cuentas y comprobantes antes de tomar tu decisión.
         </p>
       </div>
 
+      {/* Datos de la operación */}
       <div>
         <SectionTitle>Datos de la operación</SectionTitle>
         <div className="grid grid-cols-3 gap-3">
           {[
-            { l: 'ID',         v: op.id,              mono: true  },
-            { l: 'Cliente',    v: op.clienteNombre               },
-            { l: 'Fecha',      v: fmtDate(op.fecha)              },
-            { l: 'Tipo',       v: op.tipo?.toUpperCase()         },
-            { l: 'Monto USD',  v: fmtMoney(op.montoUSD, '$')     },
-            { l: 'TC pactado', v: op.tc?.toFixed(3), mono: true  },
+            { l: 'ID',         v: op.id,                          mono: true },
+            { l: 'Cliente',    v: op.clienteNombre                           },
+            { l: 'Fecha',      v: fmtDate(op.fecha)                          },
+            { l: 'Tipo',       v: op.tipo?.toUpperCase()                     },
+            { l: 'Monto USD',  v: fmtMoney(op.montoUSD, '$')                 },
+            { l: 'TC pactado', v: op.tc?.toFixed(3),              mono: true },
+            { l: 'Monto PEN',  v: fmtMoney(op.montoPEN ?? (op.montoUSD && op.tc ? op.montoUSD * op.tc : null), 'S/') },
           ].map(({ l, v, mono }) => (
             <div key={l} className="p-3 rounded-lg border border-gray-100 bg-gray-50">
               <p className="text-[10px] text-gray-400 mb-0.5">{l}</p>
-              <p className={clsx('text-xs font-bold text-gray-800', mono && 'font-mono')}>{v}</p>
+              <p className={clsx('text-xs font-bold text-gray-800', mono && 'font-mono')}>{v ?? '—'}</p>
             </div>
           ))}
         </div>
       </div>
 
+      {/* Cuentas QAPAQ */}
       <div>
         <SectionTitle>Cuentas QAPAQ registradas</SectionTitle>
         <div className="grid grid-cols-2 gap-3">
-          <div className="p-3 rounded-lg border border-gray-100 bg-gray-50">
-            <p className="text-[10px] text-gray-400 mb-0.5">Cuenta de ingreso</p>
-            <p className="text-xs font-medium text-gray-700">{op.cuentaQpaqIn ?? '—'}</p>
+          {/* Ingreso */}
+          <div className="p-3 rounded-lg border border-gray-100 bg-gray-50 space-y-1">
+            <p className="text-[10px] text-gray-400">Cuenta(s) de ingreso</p>
+            {(() => {
+              const ids = (op.cuentasQpaqIngreso ?? []).filter(Boolean)
+              if (ids.length === 0 && op.cuentaQpaqIn) ids.push(op.cuentaQpaqIn)
+              return ids.length > 0
+                ? ids.map((id, i) => (
+                    <p key={i} className="text-xs font-medium text-gray-700">{QAPAQ_DISPLAY[id] ?? id}</p>
+                  ))
+                : <p className="text-xs text-gray-400 italic">—</p>
+            })()}
           </div>
-          <div className="p-3 rounded-lg border border-gray-100 bg-gray-50">
-            <p className="text-[10px] text-gray-400 mb-0.5">Cuenta de egreso</p>
-            <p className="text-xs font-medium text-gray-700">{op.cuentaQpaqOut ?? '—'}</p>
+          {/* Egreso */}
+          <div className="p-3 rounded-lg border border-gray-100 bg-gray-50 space-y-1">
+            <p className="text-[10px] text-gray-400">Cuenta(s) de egreso</p>
+            {(() => {
+              const ids = (op.cuentasQpaqEgreso ?? []).filter(Boolean)
+              if (ids.length === 0 && op.cuentaQpaqOut) ids.push(op.cuentaQpaqOut)
+              return ids.length > 0
+                ? ids.map((id, i) => (
+                    <p key={i} className="text-xs font-medium text-gray-700">{QAPAQ_DISPLAY[id] ?? id}</p>
+                  ))
+                : <p className="text-xs text-gray-400 italic">—</p>
+            })()}
           </div>
         </div>
       </div>
 
+      {/* Cuentas destino del cliente */}
+      {(op.cuentasDest ?? []).length > 0 && (
+        <div>
+          <SectionTitle>Cuentas destino del cliente ({monedaDestino})</SectionTitle>
+          <div className="space-y-2">
+            {op.cuentasDest.map((row, idx) => (
+              <div key={idx} className="flex items-center justify-between px-4 py-3 rounded-lg border border-gray-100 bg-white">
+                <div>
+                  <p className="text-[10px] text-gray-400 mb-0.5">{idx === 0 ? 'Cuenta principal' : `Cuenta adicional ${idx}`}</p>
+                  <p className="text-xs font-medium text-gray-800">
+                    {CUENTAS_DISPLAY[row.cuentaId] ?? row.cuentaId ?? '—'}
+                  </p>
+                </div>
+                {row.monto && (
+                  <p className="text-sm font-bold text-gray-800 font-mono">
+                    {monedaDestino} {parseFloat(row.monto).toLocaleString('es-PE', { minimumFractionDigits: 2 })}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Comprobantes */}
       <div>
         <SectionTitle>Comprobantes adjuntos ({(op.comprobantes ?? []).length})</SectionTitle>
         {(op.comprobantes ?? []).length === 0 ? (
@@ -151,7 +238,7 @@ function Step1({ op }) {
                   <FileText size={14} className="text-blue-500 shrink-0" />
                   <p className="text-xs font-medium text-gray-700">{f.name ?? `Comprobante ${i + 1}`}</p>
                 </div>
-                <button 
+                <button
                   onClick={() => onPreviewDoc?.(f.name ?? `Comprobante ${i + 1}`)}
                   className="flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-800 transition-colors"
                 >
@@ -191,13 +278,17 @@ function Step1({ op }) {
 /* ══════════════════════════════════════════════
    STEP 2 — DECISIÓN
 ══════════════════════════════════════════════ */
-function Step2({ decision, setDecision, observacion, setObservacion, errors }) {
+function Step2({ decision, setDecision, causas, setCausas, observacion, setObservacion, errors }) {
+  function toggleCausa(id) {
+    setCausas(prev => prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id])
+  }
+
   return (
     <div className="space-y-6">
       <div>
         <h3 className="text-sm font-semibold text-gray-900 mb-1">Decisión del analista</h3>
         <p className="text-xs text-gray-500">
-          Si apruebas, Bank+ recibirá el registro y deberás ingresar la referencia de transferencia bancaria para completar la liquidación. Si observas, la operación regresa al Trader.
+          Si procesas, Bank+ recibirá el registro y deberás ingresar la referencia de transferencia bancaria. Si observas, la operación regresa al Trader según la leyenda de errores.
         </p>
       </div>
 
@@ -211,7 +302,9 @@ function Step2({ decision, setDecision, observacion, setObservacion, errors }) {
               decision === 'aprobar' ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-400')}>
               <CheckCircle2 size={18} />
             </div>
-            <span className={clsx('text-sm font-bold', decision === 'aprobar' ? 'text-green-700' : 'text-gray-600')}>Aprobar</span>
+            <span className={clsx('text-sm font-bold', decision === 'aprobar' ? 'text-green-700' : 'text-gray-600')}>
+              Procesar operación en plataforma bancaria
+            </span>
           </div>
           <p className="text-xs text-gray-500">El abono es correcto. Registrar en Bank+ e ingresar referencia de transferencia.</p>
         </button>
@@ -225,37 +318,60 @@ function Step2({ decision, setDecision, observacion, setObservacion, errors }) {
               decision === 'observar' ? 'bg-orange-400 text-white' : 'bg-gray-100 text-gray-400')}>
               <MessageSquare size={18} />
             </div>
-            <span className={clsx('text-sm font-bold', decision === 'observar' ? 'text-orange-700' : 'text-gray-600')}>Observar</span>
+            <span className={clsx('text-sm font-bold', decision === 'observar' ? 'text-orange-700' : 'text-gray-600')}>
+              Se detectó un problema
+            </span>
           </div>
-          <p className="text-xs text-gray-500">Se detectó un problema. Devolver al Trader con observación escrita.</p>
+          <p className="text-xs text-gray-500">Retornar al Trader según leyenda de errores seleccionada.</p>
         </button>
       </div>
 
       {errors?.decision && <p className="text-[11px] text-red-500">{errors.decision}</p>}
 
       {decision === 'observar' && (
-        <div className="space-y-2">
-          <label className="block text-xs font-medium text-gray-700">
-            Texto de observación <span className="text-red-400">*</span>
-            <span className="ml-1 text-gray-400 font-normal">(mín. 10 caracteres)</span>
-          </label>
-          <textarea
-            value={observacion}
-            onChange={e => setObservacion(e.target.value)}
-            rows={4}
-            placeholder="Describe con precisión el problema detectado: comprobante ilegible, monto incorrecto, cuenta errónea, etc."
-            className={clsx(
-              'w-full px-3 py-2.5 rounded-lg border text-sm bg-white outline-none transition-all resize-none',
-              errors?.observacion ? 'border-red-400 ring-2 ring-red-50' : 'border-gray-200 focus:border-orange-400 focus:ring-2 focus:ring-orange-50'
-            )}
-          />
-          <div className="flex items-center justify-between">
-            {errors?.observacion ? <p className="text-[11px] text-red-500">{errors.observacion}</p> : <span />}
-            <span className={clsx('text-[11px]', observacion.length >= 10 ? 'text-green-600' : 'text-gray-400')}>
-              {observacion.length} caracteres
-            </span>
+        <div className="space-y-4">
+          {/* Leyenda de errores multi-select */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-2">
+              Leyenda de errores <span className="text-red-400">*</span>
+              <span className="ml-1 text-gray-400 font-normal">(selecciona al menos uno)</span>
+            </label>
+            <div className="space-y-1.5">
+              {CAUSAS_OBSERVACION.map(causa => (
+                <label key={causa.id}
+                  className={clsx(
+                    'flex items-center gap-3 px-3 py-2.5 rounded-lg border cursor-pointer transition-all',
+                    causas.includes(causa.id)
+                      ? 'border-orange-300 bg-orange-50'
+                      : 'border-gray-200 bg-white hover:border-orange-200 hover:bg-orange-50/30'
+                  )}>
+                  <input type="checkbox" checked={causas.includes(causa.id)}
+                    onChange={() => toggleCausa(causa.id)}
+                    className="accent-orange-500 w-3.5 h-3.5 shrink-0" />
+                  <span className={clsx('text-xs', causas.includes(causa.id) ? 'text-orange-800 font-medium' : 'text-gray-700')}>
+                    {causa.label}
+                  </span>
+                </label>
+              ))}
+            </div>
+            {errors?.causas && <p className="text-[11px] text-red-500 mt-1">{errors.causas}</p>}
           </div>
-          <InfoCard bg="amber">La observación quedará registrada de forma permanente y será visible para el Trader.</InfoCard>
+
+          {/* Comentario adicional (optativo) */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">
+              Comentario adicional <span className="text-gray-400 font-normal">(opcional)</span>
+            </label>
+            <textarea
+              value={observacion}
+              onChange={e => setObservacion(e.target.value)}
+              rows={3}
+              placeholder="Detalla el problema adicional si es necesario…"
+              className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm bg-white outline-none transition-all resize-none focus:border-orange-400 focus:ring-2 focus:ring-orange-50"
+            />
+          </div>
+
+          <InfoCard bg="amber">La leyenda de errores y el comentario quedarán registrados de forma permanente y serán visibles para el Trader.</InfoCard>
         </div>
       )}
 
@@ -271,8 +387,11 @@ function Step2({ decision, setDecision, observacion, setObservacion, errors }) {
 /* ══════════════════════════════════════════════
    STEP 3 — CONFIRMACIÓN
 ══════════════════════════════════════════════ */
-function Step3({ op, decision, observacion }) {
+function Step3({ op, decision, causas, observacion }) {
   const isAprob = decision === 'aprobar'
+  const monedaDestino = op.tipo === 'compra' ? 'PEN' : 'USD'
+  const causasSeleccionadas = CAUSAS_OBSERVACION.filter(c => causas.includes(c.id))
+
   return (
     <div className="space-y-5">
       <div>
@@ -289,7 +408,7 @@ function Step3({ op, decision, observacion }) {
           </div>
           <div>
             <p className={clsx('text-sm font-bold', isAprob ? 'text-green-800' : 'text-orange-800')}>
-              {isAprob ? 'Aprobar y registrar en Bank+' : 'Devolver con observación'}
+              {isAprob ? 'Procesar operación en plataforma bancaria' : 'Devolver con observación al Trader'}
             </p>
             <p className={clsx('text-xs', isAprob ? 'text-green-600' : 'text-orange-600')}>
               {isAprob
@@ -298,34 +417,71 @@ function Step3({ op, decision, observacion }) {
             </p>
           </div>
         </div>
-        {!isAprob && observacion && (
+
+        {!isAprob && causasSeleccionadas.length > 0 && (
           <div className="pt-3 border-t border-orange-200">
-            <p className="text-[11px] text-orange-600 font-semibold uppercase tracking-wider mb-1">Observación:</p>
-            <p className="text-xs text-orange-800 leading-relaxed">{observacion}</p>
+            <p className="text-[11px] text-orange-600 font-semibold uppercase tracking-wider mb-1.5">Leyenda de errores:</p>
+            <ul className="space-y-1">
+              {causasSeleccionadas.map(c => (
+                <li key={c.id} className="flex items-center gap-1.5 text-xs text-orange-800">
+                  <span className="w-1 h-1 rounded-full bg-orange-400 shrink-0" />
+                  {c.label}
+                </li>
+              ))}
+            </ul>
+            {observacion && (
+              <p className="mt-2 text-xs text-orange-700 italic">"{observacion}"</p>
+            )}
           </div>
         )}
       </div>
 
+      {/* Resumen de operación */}
       <div className="grid grid-cols-2 gap-3">
         {[
-          { l: 'Operación', v: op.id, mono: true },
-          { l: 'Cliente',   v: op.clienteNombre  },
-          { l: 'Monto',     v: fmtMoney(op.montoUSD, '$') + ' USD' },
-          { l: isAprob ? 'Siguiente paso' : 'Estado resultante',
-            v: isAprob ? 'Ingresar referencia bancaria' : 'Observada',
-            highlight: isAprob },
-        ].map(({ l, v, mono, highlight }) => (
+          { l: 'Operación', v: op.id,                        mono: true  },
+          { l: 'Cliente',   v: op.clienteNombre                          },
+          { l: 'Monto USD', v: fmtMoney(op.montoUSD, '$') + ' USD'      },
+          { l: 'TC',        v: op.tc?.toFixed(3),            mono: true  },
+        ].map(({ l, v, mono }) => (
           <div key={l} className="p-3 rounded-lg border border-gray-100 bg-gray-50">
             <p className="text-[10px] text-gray-400 mb-0.5">{l}</p>
-            <p className={clsx('text-xs font-bold', mono ? 'font-mono text-gray-800' : highlight ? 'text-blue-600' : isAprob ? 'text-green-600' : 'text-orange-600')}>{v}</p>
+            <p className={clsx('text-xs font-bold', mono ? 'font-mono text-gray-800' : isAprob ? 'text-green-600' : 'text-orange-600')}>{v}</p>
           </div>
         ))}
       </div>
 
+      {/* Cuentas destino del cliente (solo cuando se aprueba) */}
+      {isAprob && (op.cuentasDest ?? []).length > 0 && (
+        <div>
+          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
+            Monto a transferir al cliente ({monedaDestino})
+          </p>
+          <div className="rounded-xl border border-gray-200 bg-white overflow-hidden divide-y divide-gray-100">
+            {op.cuentasDest.map((row, idx) => {
+              const label = CUENTAS_DISPLAY[row.cuentaId] ?? row.cuentaId ?? '—'
+              const [banco, resto] = label.split(' · ')
+              return (
+                <div key={idx} className="flex items-center justify-between px-4 py-3">
+                  <div>
+                    <p className="text-[10px] text-gray-400">{idx === 0 ? 'Cuenta principal' : `Cuenta adicional ${idx}`}</p>
+                    <p className="text-xs font-semibold text-gray-800">{banco}</p>
+                    <p className="text-[11px] text-gray-500">{resto}</p>
+                  </div>
+                  <p className="text-sm font-bold text-gray-900 font-mono">
+                    {monedaDestino} {row.monto ? parseFloat(row.monto).toLocaleString('es-PE', { minimumFractionDigits: 2 }) : '—'}
+                  </p>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       <InfoCard bg={isAprob ? 'green' : 'amber'}>
         {isAprob
           ? 'Se intentará el registro en Bank+. Si falla, la operación permanece en tu bandeja y podrás reintentar sin devolver la operación al Trader.'
-          : 'La observación quedará registrada en el historial de la operación.'}
+          : 'La leyenda de errores y el comentario quedarán registrados en el historial de la operación.'}
       </InfoCard>
     </div>
   )
@@ -359,7 +515,7 @@ function Step4({ op, refTransferencia, setRefTransferencia, fechaLiquidacion, er
       {/* Referencia de transferencia */}
       <div>
         <label className="block text-xs font-medium text-gray-700 mb-1.5">
-          Referencia de transferencia bancaria <span className="text-red-400">*</span>
+          Referencia de transferencia bancaria <span className="text-gray-400 font-normal">(opcional — no siempre disponible)</span>
         </label>
         <input
           type="text"
@@ -399,8 +555,8 @@ function Step4({ op, refTransferencia, setRefTransferencia, fechaLiquidacion, er
             { l: 'Cliente',      v: op.clienteNombre                             },
             { l: 'Monto USD',    v: fmtMoney(op.montoUSD, '$')                   },
             { l: 'TC liquidado', v: op.tc?.toFixed(3),                 mono: true },
-            { l: 'Cuenta ingreso', v: op.cuentaQpaqIn ?? '—'                     },
-            { l: 'Cuenta egreso',  v: op.cuentaQpaqOut ?? '—'                    },
+            { l: 'Cuenta ingreso', v: (() => { const id = ((op.cuentasQpaqIngreso ?? []).find(Boolean)) ?? op.cuentaQpaqIn; return QAPAQ_DISPLAY[id] ?? id ?? '—' })() },
+            { l: 'Cuenta egreso',  v: (() => { const id = ((op.cuentasQpaqEgreso  ?? []).find(Boolean)) ?? op.cuentaQpaqOut; return QAPAQ_DISPLAY[id] ?? id ?? '—' })() },
           ].map(({ l, v, mono }) => (
             <div key={l}>
               <p className="text-[11px] text-gray-400 mb-0.5">{l}</p>
@@ -424,6 +580,7 @@ export default function RevisionBackOfficeWizard({ op, onBack, onLiquidar, onObs
   const [step,             setStep]             = useState(1)
   const [decision,         setDecision]         = useState('')
   const [observacion,      setObservacion]      = useState('')
+  const [causas,           setCausas]           = useState([])
   const [refTransferencia, setRefTransferencia] = useState('')
   const [errors,           setErrors]           = useState({})
   const [loading,          setLoading]          = useState(false)
@@ -441,15 +598,14 @@ export default function RevisionBackOfficeWizard({ op, onBack, onLiquidar, onObs
 
   function validateStep2() {
     const e = {}
-    if (!decision) e.decision = 'Debes seleccionar una acción'
-    if (decision === 'observar' && observacion.trim().length < 10)
-      e.observacion = 'La observación debe tener al menos 10 caracteres'
+    if (!decision) e.decision = 'Selecciona una decisión.'
+    if (decision === 'observar' && causas.length === 0) e.causas = 'Selecciona al menos una causa de observación.'
     return e
   }
 
   function validateStep4() {
     const e = {}
-    if (!refTransferencia.trim()) e.ref = 'La referencia de transferencia es obligatoria'
+    if (false) e.ref = ''  // referencia ahora es optativa
     return e
   }
 
@@ -474,7 +630,8 @@ export default function RevisionBackOfficeWizard({ op, onBack, onLiquidar, onObs
     if (!isAprob) {
       setLoading(true)
       setTimeout(() => {
-        onObservar(op.id, observacion.trim())
+        const causasLabels = CAUSAS_OBSERVACION.filter(c => causas.includes(c.id)).map(c => c.label)
+        onObservar(op.id, [...causasLabels, ...(observacion.trim() ? [observacion.trim()] : [])].join(' | '))
         setLoading(false)
         notify?.(`Operación ${op.id} devuelta al Trader con observación.`, 'warning')
       }, 900)
@@ -522,7 +679,7 @@ export default function RevisionBackOfficeWizard({ op, onBack, onLiquidar, onObs
     }, 1500)
   }
 
-  const canNext2 = !!decision && (decision === 'aprobar' || observacion.trim().length >= 10)
+  const canNext2 = !!decision && (decision === 'aprobar' || causas.length > 0)
   const isLastStep = step === totalSteps
 
   return (
@@ -543,15 +700,16 @@ export default function RevisionBackOfficeWizard({ op, onBack, onLiquidar, onObs
 
       {/* ── Contenido ── */}
       <div className="bg-white rounded-2xl border border-gray-100 p-8 shadow-sm mb-6">
-        {step === 1 && <Step1 op={op} />}
+        {step === 1 && <Step1 op={op} onPreviewDoc={onPreviewDoc} />}
         {step === 2 && (
           <Step2
             decision={decision}       setDecision={setDecision}
+            causas={causas}           setCausas={setCausas}
             observacion={observacion} setObservacion={setObservacion}
             errors={errors}
           />
         )}
-        {step === 3 && <Step3 op={op} decision={decision} observacion={observacion} />}
+        {step === 3 && <Step3 op={op} decision={decision} causas={causas} observacion={observacion} />}
         {step === 4 && (
           <Step4
             op={op}
@@ -628,7 +786,7 @@ export default function RevisionBackOfficeWizard({ op, onBack, onLiquidar, onObs
         {step === 4 && (
           <button
             onClick={handleLiquidar}
-            disabled={loading || !refTransferencia.trim()}
+            disabled={loading}
             className="flex items-center gap-1.5 px-6 py-2 rounded-xl bg-green-600 text-white text-sm font-semibold hover:bg-green-700 shadow-sm transition-all active:scale-95 disabled:opacity-50"
           >
             {loading

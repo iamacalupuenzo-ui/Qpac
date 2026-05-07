@@ -13,6 +13,7 @@ const DEFAULT_PARAMS = {
   montoLimiteGeneral:    5_000_000,
   tcTolerancia:          2.5,
   limiteAcumuladoDiario: 10_000_000,
+  stopLossUSD:           500_000,
   maxOpsConcurrentes:    50,
 
   /* Seguridad y Sesión */
@@ -123,7 +124,7 @@ export default function ParametrosPage() {
     { label: 'Límite general (USD)',  value: `$ ${fmtMoney(params.montoLimiteGeneral)}`,   color: 'text-blue-600'   },
     { label: 'Tolerancia TC',         value: `${params.tcTolerancia} %`,                    color: 'text-gray-900'   },
     { label: 'Timeout de sesión',     value: `${params.sessionTimeout} min`,                 color: 'text-gray-900'   },
-    { label: 'Umbral PLAFT (USD)',     value: `$ ${fmtMoney(params.umbralPLAFT)}`,           color: 'text-amber-600'  },
+    { label: 'Stop Loss (USD)',         value: `$ ${fmtMoney(params.stopLossUSD)}`,           color: 'text-red-600'    },
   ]
 
   return (
@@ -182,6 +183,15 @@ export default function ParametrosPage() {
           >
             <input type="number" value={params.limiteAcumuladoDiario}
               onChange={e => set('limiteAcumuladoDiario', Number(e.target.value))}
+              className={inputCls} />
+          </FieldParam>
+
+          <FieldParam
+            label="Stop Loss — Exposición Máxima (USD)"
+            hint="Monto máximo de posición neta (comprada o vendida). Al alcanzarlo se dispara una alerta en Posición FX."
+          >
+            <input type="number" value={params.stopLossUSD}
+              onChange={e => set('stopLossUSD', Number(e.target.value))}
               className={inputCls} />
           </FieldParam>
 

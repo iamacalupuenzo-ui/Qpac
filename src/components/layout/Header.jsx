@@ -1,6 +1,14 @@
-import { Bell, Search, ChevronDown, User, Settings, LogOut, HelpCircle } from 'lucide-react'
+import { Bell, Search, ChevronDown, User, Settings, LogOut, HelpCircle, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import clsx from 'clsx'
+
+function TrendArrow({ curr, prev, field }) {
+  if (!prev || curr == null) return <Minus size={9} className="text-gray-300" />
+  const diff = (curr[field] ?? 0) - (prev[field] ?? 0)
+  if (diff > 0.00005) return <TrendingUp size={9} className="text-green-500" />
+  if (diff < -0.00005) return <TrendingDown size={9} className="text-red-500" />
+  return <Minus size={9} className="text-gray-300" />
+}
 
 const roleLabel = {
   admin:     'Administrador',
@@ -21,6 +29,8 @@ export default function Header({
   role = 'middle',
   userName = 'Marco Quispe',
   onLogout,
+  marketData,
+  ops,
 }) {
   const [searchFocused, setSearchFocused] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
@@ -45,6 +55,23 @@ export default function Header({
     .slice(0, 2)
     .toUpperCase()
 
+  /* ── Market strip ── */
+  const isManual   = marketData?.mode !== 'datatec'
+  const displayTC  = isManual ? marketData?.pizarra : marketData?.datatec
+  const prevTC     = marketData?.history?.[0]
+  const modeLabel  = isManual ? 'Pizarra' : 'Datatec'
+  const modeTime   = isManual
+    ? (marketData?.lastPizarraUpdate?.hora ?? '')
+    : new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })
+
+  const posNeta = ops
+    ? ops
+        .filter(o => !['anulada', 'cerrada'].includes(o.estado))
+        .reduce((acc, o) => acc + (o.tipo === 'compra' ? o.montoUSD : -o.montoUSD), 0)
+    : null
+  const showGlobal = ['admin', 'tesoreria', 'contab', 'reportes'].includes(role)
+  const posLabel   = showGlobal ? 'Global' : 'Mesa'
+
   return (
     <header
       className="sticky top-0 z-20 bg-white"
@@ -54,9 +81,55 @@ export default function Header({
       <div className="flex items-center justify-between px-6 h-14">
 
         {/* Título de módulo */}
-        <h1 className="text-sm font-semibold text-gray-900 tracking-tight">
+        <h1 className="text-sm font-semibold text-gray-900 tracking-tight shrink-0">
           {title}
         </h1>
+
+        {/* Centro: strip de mercado */}
+        {marketData && displayTC && (
+          <div className="flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-lg px-3 py-1.5 mx-4">
+            <span className={clsx(
+              'text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded',
+              isManual ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'
+            )}>
+              {modeLabel}
+            </span>
+            <span className="text-[10px] text-gray-400">{modeTime}</span>
+
+            <span className="w-px h-3.5 bg-gray-200" />
+
+            {/* Compra */}
+            <div className="flex items-center gap-0.5">
+              <span className="text-[9px] text-gray-400 font-semibold mr-0.5">C</span>
+              <span className="text-xs font-mono font-bold text-gray-800">{displayTC.compra.toFixed(3)}</span>
+              <TrendArrow curr={displayTC} prev={prevTC} field="compra" />
+            </div>
+
+            <span className="text-gray-200 text-xs">|</span>
+
+            {/* Venta */}
+            <div className="flex items-center gap-0.5">
+              <span className="text-[9px] text-gray-400 font-semibold mr-0.5">V</span>
+              <span className="text-xs font-mono font-bold text-gray-800">{displayTC.venta.toFixed(3)}</span>
+              <TrendArrow curr={displayTC} prev={prevTC} field="venta" />
+            </div>
+
+            {posNeta !== null && (
+              <>
+                <span className="w-px h-3.5 bg-gray-200" />
+                <div className="flex items-center gap-1">
+                  <span className="text-[9px] text-gray-400 font-semibold">Pos. {posLabel}</span>
+                  <span className={clsx(
+                    'text-xs font-mono font-bold',
+                    posNeta > 0 ? 'text-green-600' : posNeta < 0 ? 'text-red-600' : 'text-gray-600'
+                  )}>
+                    {posNeta >= 0 ? '+' : ''}{posNeta.toLocaleString('es-PE')} USD
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         {/* Controles derecha */}
         <div className="flex items-center gap-2">

@@ -2,7 +2,14 @@
   "permissions": {
     "allow": [
       "Bash(npx vite *)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(Get-ChildItem *)",
+      "Bash(python *)",
+      "Bash(node *)",
+      "Bash(Select-Object FullName, Name, Directory)",
+      "Bash(Format-Table -AutoSize)",
+      "Bash(awk -F/ '{print $NF, $0}')",
+      "Bash(npx --yes acorn --ecma2020 --module src/pages/operaciones/CotizacionWizard.jsx)"
     ]
   }
 }

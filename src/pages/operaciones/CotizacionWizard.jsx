@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import {
   ArrowLeft, Check, Search, X, AlertTriangle, Info,
-  AlertCircle, ChevronRight, ArrowDownLeft, ArrowUpRight, CheckCircle2,
+  AlertCircle, ChevronRight, ArrowDownLeft, ArrowUpRight, CheckCircle2, Plus,
+  ArrowLeftRight,
 } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -29,13 +30,32 @@ const MOCK_CLIENTES = [
 
 const CUENTAS_CLIENTE = {
   'CLI-001': [
-    { id: 'CTA-001', banco: 'BCP',       moneda: 'USD', numero: '191-1234567-0-12', tipo: 'propia',  convenio: true  },
-    { id: 'CTA-002', banco: 'Interbank', moneda: 'PEN', numero: '200-3000123456',   tipo: 'propia',  convenio: true  },
-    { id: 'CTA-003', banco: 'Scotia',    moneda: 'USD', numero: '00-272-123456789', tipo: 'tercero', convenio: false },
+    { id: 'CTA-001', banco: 'BCP',       moneda: 'USD', numero: '191-1234567-0-12',          tipo: 'propia',  convenio: true  },
+    { id: 'CTA-002', banco: 'Interbank', moneda: 'PEN', numero: '200-3000123456',             tipo: 'propia',  convenio: true  },
+    { id: 'CTA-003', banco: 'Scotia',    moneda: 'USD', numero: '00-272-123456789',           tipo: 'tercero', convenio: false },
+    { id: 'CTA-004', banco: 'BBVA',      moneda: 'EUR', numero: '0011-0111-11-0100001234',   tipo: 'propia',  convenio: true  },
   ],
   'CLI-002': [
-    { id: 'CTA-010', banco: 'BBVA', moneda: 'USD', numero: '0011-0111-11-0100075234', tipo: 'propia',  convenio: true },
-    { id: 'CTA-011', banco: 'BCP',  moneda: 'PEN', numero: '191-2345678-0-45',        tipo: 'tercero', convenio: true },
+    { id: 'CTA-010', banco: 'BBVA',      moneda: 'USD', numero: '0011-0111-11-0100075234',   tipo: 'propia',  convenio: true  },
+    { id: 'CTA-011', banco: 'BCP',       moneda: 'PEN', numero: '191-2345678-0-45',          tipo: 'tercero', convenio: true  },
+  ],
+  'CLI-003': [
+    { id: 'CTA-030', banco: 'BCP',       moneda: 'USD', numero: '191-3000001-0-55',          tipo: 'propia',  convenio: true  },
+    { id: 'CTA-031', banco: 'BCP',       moneda: 'PEN', numero: '191-3000002-0-11',          tipo: 'propia',  convenio: true  },
+    { id: 'CTA-032', banco: 'Interbank', moneda: 'USD', numero: '200-3100099-001',            tipo: 'tercero', convenio: true  },
+  ],
+  'CLI-004': [
+    { id: 'CTA-040', banco: 'Scotiabank',moneda: 'PEN', numero: '00-272-4000001',            tipo: 'propia',  convenio: true  },
+    { id: 'CTA-041', banco: 'BBVA',      moneda: 'USD', numero: '0011-0444-44-0100044001',   tipo: 'propia',  convenio: true  },
+  ],
+  'CLI-005': [
+    { id: 'CTA-050', banco: 'BCP',       moneda: 'PEN', numero: '191-5000001-0-88',          tipo: 'propia',  convenio: true  },
+    { id: 'CTA-051', banco: 'BBVA',      moneda: 'USD', numero: '0011-0222-22-0100088001',   tipo: 'propia',  convenio: true  },
+    { id: 'CTA-052', banco: 'Interbank', moneda: 'PEN', numero: '200-5000099-001',            tipo: 'tercero', convenio: false },
+  ],
+  'CLI-006': [
+    { id: 'CTA-060', banco: 'BCP',       moneda: 'PEN', numero: '191-6000001-0-22',          tipo: 'propia',  convenio: true  },
+    { id: 'CTA-061', banco: 'Interbank', moneda: 'USD', numero: '200-6000012-001',            tipo: 'propia',  convenio: true  },
   ],
 }
 
@@ -47,6 +67,13 @@ const CUENTAS_QAPAQ = {
   PEN: [
     { id: 'QP-PEN-1', banco: 'BCP',        numero: '191-9000003-0-01', moneda: 'PEN' },
     { id: 'QP-PEN-2', banco: 'Scotiabank', numero: '00-272-9000004',   moneda: 'PEN' },
+  ],
+  EUR: [
+    { id: 'QP-EUR-1', banco: 'BCP',  numero: '191-9000005-0-01', moneda: 'EUR' },
+    { id: 'QP-EUR-2', banco: 'BBVA', numero: '0011-9000006-0-01', moneda: 'EUR' },
+  ],
+  GBP: [
+    { id: 'QP-GBP-1', banco: 'BCP',  numero: '191-9000007-0-01', moneda: 'GBP' },
   ],
 }
 
@@ -304,34 +331,75 @@ function Step1({ formData, onChange, errors }) {
 /* ═══════════════════════════════════════════════
    STEP 2 — DATOS DE LA OPERACIÓN
 ═══════════════════════════════════════════════ */
-function Step2({ formData, onChange, errors, marketData }) {
+function Step2({ formData, onChange, errors, marketData, ops }) {
   const { datatec, pizarra, status, mode } = marketData
-  
-  // Determinamos si el mercado está en horario de pizarra (> 13:33)
-  const nowTime = new Date()
-  const isPostCutoff = (nowTime.getHours() > 13) || (nowTime.getHours() === 13 && nowTime.getMinutes() >= 33)
-  const currentMode = isPostCutoff ? 'manual' : mode // Se impone manual si pasó la hora
-  const tipoOp    = formData.tipoOp    ?? ''
-  const monto     = formData.monto     ?? ''
-  const fuenteTC  = formData.fuenteTC  ?? 'datatec'
-  const tcPunta   = formData.tcPunta   ?? ''
-  const tcPactado = formData.tcPactado ?? ''
 
-  const sbsRate = tipoOp ? TC_SBS[tipoOp] : null
-  const spread  = tcPactado && sbsRate && !isNaN(+tcPactado)
-    ? (+tcPactado - +sbsRate).toFixed(4) : null
-  const contravalor = monto && tcPactado && !isNaN(+monto) && !isNaN(+tcPactado) && tipoOp
-    ? tipoOp === 'compra' ? +monto * +tcPactado : +monto / +tcPactado : null
-  const spreadAlert = tcPactado && sbsRate && Math.abs(+tcPactado - +sbsRate) > 0.03
+  const nowTime      = new Date()
+  const isPostCutoff = nowTime.getHours() > 13 || (nowTime.getHours() === 13 && nowTime.getMinutes() >= 33)
+  const currentMode  = isPostCutoff ? 'manual' : mode
 
+  const tipoOp       = formData.tipoOp        ?? ''
+  const monedaCruz   = formData.monedaCruzada  ?? 'PEN'
+  const monto        = formData.monto          ?? ''
+  const fuenteTC     = formData.fuenteTC       ?? 'datatec'
+  const tcPunta      = formData.tcPunta        ?? ''
+  const tcPactado    = formData.tcPactado      ?? ''
+  const isCruzada    = tipoOp === 'cruzada'
+
+  // Auto-fill TC Punta desde Datatec (solo cuando la fuente es datatec)
   useEffect(() => {
-    if (fuenteTC === 'datatec' && tipoOp) {
-      const refB = currentMode === 'manual' ? pizarra.compra : datatec.compra
-      const refV = currentMode === 'manual' ? pizarra.venta  : datatec.venta
-      onChange('tcPunta', String(tipoOp === 'compra' ? refB : refV))
-    }
-    if (fuenteTC === 'manual') onChange('tcPunta', '')
-  }, [fuenteTC, tipoOp, datatec, pizarra, currentMode])
+    if (fuenteTC !== 'datatec' || !tipoOp) return
+    const refB = currentMode === 'manual' ? pizarra.compra : datatec.compra
+    const refV = currentMode === 'manual' ? pizarra.venta  : datatec.venta
+    if (tipoOp === 'compra') onChange('tcPunta', String(refB))
+    else if (tipoOp === 'venta') onChange('tcPunta', String(refV))
+    else if (isCruzada) onChange('tcPunta', String(monedaCruz === 'PEN' ? refB : refV))
+  }, [fuenteTC, tipoOp, monedaCruz, datatec, pizarra, currentMode])
+
+  const tcPuntaNum   = parseFloat(tcPunta)
+  const tcPactadoNum = parseFloat(tcPactado)
+  const montoNum     = parseFloat(monto)
+
+  // Spread: compra = punta−pactado; venta = pactado−punta; cruzada = |pactado−punta| siempre positivo
+  const spread = !isNaN(tcPuntaNum) && tcPuntaNum > 0 && !isNaN(tcPactadoNum) && tcPactadoNum > 0
+    ? (isCruzada
+        ? Math.abs(tcPactadoNum - tcPuntaNum)
+        : tipoOp === 'compra' ? tcPuntaNum - tcPactadoNum : tcPactadoNum - tcPuntaNum)
+    : null
+  const spreadNegativo = spread !== null && spread < 0
+
+  // Contravalor:
+  //   compra  → monto USD × tcPactado  = PEN
+  //   venta   → monto PEN / tcPactado  = USD
+  //   cruzada → monto × min(TC) / max(TC)  (misma moneda, flujo por banco distinto)
+  const contravalor = !isNaN(montoNum) && montoNum > 0 && !isNaN(tcPactadoNum) && tcPactadoNum > 0
+    ? isCruzada
+      ? (() => {
+          if (isNaN(tcPuntaNum) || tcPuntaNum <= 0) return null
+          return montoNum * Math.min(tcPactadoNum, tcPuntaNum) / Math.max(tcPactadoNum, tcPuntaNum)
+        })()
+      : tipoOp === 'compra' ? montoNum * tcPactadoNum : montoNum / tcPactadoNum
+    : null
+
+  const fee = isCruzada && contravalor !== null ? montoNum - contravalor : null
+
+  const montoLabel    = isCruzada ? monedaCruz : tipoOp === 'compra' ? 'USD' : 'PEN'
+  const contraLabel   = isCruzada ? monedaCruz : tipoOp === 'compra' ? 'PEN' : 'USD'
+
+  const todayIso      = new Date().toISOString().split('T')[0]
+  const clienteNombre = formData.clienteResult?.nombre ?? ''
+  const similar = (ops ?? []).filter(o =>
+    o.clienteNombre === clienteNombre && o.fecha === todayIso &&
+    !isNaN(montoNum) && Math.abs(montoNum - o.montoUSD) < 0.01 &&
+    !isNaN(tcPactadoNum) && Math.abs(tcPactadoNum - o.tc) < 0.0001
+  )
+
+  const inputTC = (hasErr, disabled) => clsx(
+    'w-full px-3 py-2.5 rounded-lg border text-sm text-right font-mono outline-none transition-all',
+    disabled ? 'bg-gray-50 text-gray-500 cursor-not-allowed border-gray-200'
+    : hasErr  ? 'border-red-400 ring-2 ring-red-50'
+    : 'border-gray-200 hover:border-gray-300 focus:border-blue-400 focus:ring-2 focus:ring-blue-50'
+  )
 
   return (
     <div className="space-y-5">
@@ -340,22 +408,21 @@ function Step2({ formData, onChange, errors, marketData }) {
         <p className="text-xs text-gray-500">Ingresa el tipo, monto y tipo de cambio pactado con el cliente.</p>
       </div>
 
-      {/* Tipo */}
+      {/* Tipo de operación */}
       <div>
         <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-3">Tipo de operación</p>
         <div className="grid grid-cols-2 gap-3">
           {[
-            { value: 'compra', label: 'Compra',  desc: 'El cliente entrega USD · recibe PEN', Icon: ArrowDownLeft, color: 'emerald' },
-            { value: 'venta',  label: 'Venta',   desc: 'El cliente entrega PEN · recibe USD', Icon: ArrowUpRight,  color: 'blue'    },
+            { value: 'compra', label: 'Compra', desc: 'El cliente entrega USD · recibe PEN', Icon: ArrowDownLeft, color: 'emerald' },
+            { value: 'venta',  label: 'Venta',  desc: 'El cliente entrega PEN · recibe USD', Icon: ArrowUpRight,  color: 'blue'    },
           ].map(({ value, label, desc, Icon, color }) => {
-            const sel = tipoOp === value
-            const active = color === 'emerald'
-              ? 'border-emerald-500 bg-emerald-50'
-              : 'border-blue-500 bg-blue-50'
-            const iconBg  = color === 'emerald' ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'
-            const titleCl = color === 'emerald' ? 'text-emerald-900' : 'text-blue-900'
+            const sel    = tipoOp === value
+            const active = color === 'emerald' ? 'border-emerald-500 bg-emerald-50' : 'border-blue-500 bg-blue-50'
+            const iconBg = color === 'emerald' ? 'bg-emerald-100 text-emerald-600'  : 'bg-blue-100 text-blue-600'
+            const titleCl= color === 'emerald' ? 'text-emerald-900'                 : 'text-blue-900'
             return (
-              <button key={value} type="button" onClick={() => { onChange('tipoOp', value); onChange('tcPunta', ''); onChange('tcPactado', '') }}
+              <button key={value} type="button"
+                onClick={() => { onChange('tipoOp', value); onChange('tcPunta', ''); onChange('tcPactado', '') }}
                 className={clsx('text-left p-4 rounded-xl border-2 transition-all',
                   sel ? active : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50')}>
                 <div className="flex items-start gap-3">
@@ -366,117 +433,221 @@ function Step2({ formData, onChange, errors, marketData }) {
                     <p className={clsx('text-sm font-semibold', sel ? titleCl : 'text-gray-800')}>{label}</p>
                     <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{desc}</p>
                   </div>
-                  {sel && (
-                    <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center shrink-0 mt-0.5">
-                      <Check size={11} className="text-white" />
-                    </div>
-                  )}
+                  {sel && <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center shrink-0 mt-0.5"><Check size={11} className="text-white" /></div>}
                 </div>
               </button>
             )
           })}
+
+          {/* Cruzada — ocupa ambas columnas */}
+          <button type="button"
+            onClick={() => { onChange('tipoOp', 'cruzada'); onChange('tcPunta', ''); onChange('tcPactado', ''); onChange('fuenteTC', 'datatec') }}
+            className={clsx('col-span-2 text-left p-4 rounded-xl border-2 transition-all',
+              isCruzada ? 'border-purple-500 bg-purple-50' : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50')}>
+            <div className="flex items-start gap-3">
+              <div className={clsx('w-9 h-9 rounded-lg flex items-center justify-center shrink-0',
+                isCruzada ? 'bg-purple-100 text-purple-600' : 'bg-gray-100 text-gray-500')}>
+                <ArrowLeftRight size={18} />
+              </div>
+              <div className="flex-1">
+                <p className={clsx('text-sm font-semibold', isCruzada ? 'text-purple-900' : 'text-gray-800')}>Cruzada</p>
+                <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
+                  El cliente entrega fondos en un banco y recibe la misma moneda en otro banco con un fee · genera 2 registros BCRP
+                </p>
+              </div>
+              {isCruzada && <div className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center shrink-0 mt-0.5"><Check size={11} className="text-white" /></div>}
+            </div>
+          </button>
         </div>
         {errors?.tipoOp && (
           <p className="text-[11px] text-red-500 mt-1.5 flex items-center gap-1"><AlertCircle size={10} strokeWidth={2.5} />{errors.tipoOp}</p>
         )}
       </div>
 
-      {/* Monto + TC */}
-      <div>
-        <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-3">Monto y tipo de cambio</p>
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="Monto" required error={errors?.monto}>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400">USD</span>
-              <input type="number" min="0" step="0.01" placeholder="0.00"
-                value={monto} disabled={!tipoOp}
-                onChange={e => { onChange('monto', e.target.value) }}
-                className={clsx(
-                  'w-full pl-12 pr-3 py-2.5 rounded-lg border text-sm text-right outline-none transition-all',
-                  !tipoOp ? 'bg-gray-50 cursor-not-allowed border-gray-200'
-                    : errors?.monto ? 'border-red-400 ring-2 ring-red-50'
-                    : 'border-gray-200 hover:border-gray-300 focus:border-blue-400 focus:ring-2 focus:ring-blue-50'
-                )} />
-            </div>
-          </Field>
-
-          <Field label="Fuente de tipo de cambio">
-            <AppSelect value={fuenteTC} onChange={v => onChange('fuenteTC', v)} disabled={!tipoOp}
-              options={[
-                { value: 'datatec', label: 'Datatec (referencial automático)' },
-                { value: 'manual',  label: 'Manual'                           },
-              ]} />
-          </Field>
-
-          <Field label="TC de referencia (punta)" required error={errors?.tcPunta}>
-            <div className="relative">
-              <input type="number" step="0.001" placeholder="0.000"
-                value={tcPunta} disabled={!tipoOp || fuenteTC === 'datatec'}
-                onChange={e => onChange('tcPunta', e.target.value)}
-                className={clsx(
-                  'w-full px-3 py-2.5 rounded-lg border text-sm text-right font-mono outline-none transition-all',
-                  !tipoOp || fuenteTC === 'datatec' ? 'bg-gray-50 text-gray-500 cursor-not-allowed border-gray-200'
-                    : errors?.tcPunta ? 'border-red-400 ring-2 ring-red-50'
-                    : 'border-gray-200 hover:border-gray-300 focus:border-blue-400 focus:ring-2 focus:ring-blue-50'
-                )} />
-              {fuenteTC === 'datatec' && tipoOp && (
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 pointer-events-none">
-                  <div className={clsx('w-1.5 h-1.5 rounded-full', status === 'connected' && !isPostCutoff ? 'bg-green-500 animate-pulse' : 'bg-amber-500')} />
-                  <span className="text-[10px] font-bold text-gray-400 uppercase">
-                    {isPostCutoff ? 'Pre-Pizarra' : status === 'connected' ? 'LIVE' : 'CACHÉ'}
-                  </span>
-                </div>
-              )}
-            </div>
-            {fuenteTC === 'datatec' && tipoOp && (
-              <p className="text-[10px] text-gray-400 mt-1 uppercase tracking-tight">
-                {isPostCutoff 
-                  ? `Ref. Pizarra: C ${pizarra.compra.toFixed(3)} / V ${pizarra.venta.toFixed(3)}` 
-                  : `Ref. Datatec: C ${datatec.compra.toFixed(3)} / V ${datatec.venta.toFixed(3)}`}
-              </p>
-            )}
-          </Field>
-
-          <Field label="TC pactado con el cliente" required error={errors?.tcPactado}>
-            <input type="number" step="0.001" placeholder="0.000"
-              value={tcPactado} disabled={!tipoOp}
-              onChange={e => onChange('tcPactado', e.target.value)}
-              className={clsx(
-                'w-full px-3 py-2.5 rounded-lg border text-sm text-right font-mono outline-none transition-all',
-                !tipoOp ? 'bg-gray-50 cursor-not-allowed border-gray-200'
-                  : errors?.tcPactado ? 'border-red-400 ring-2 ring-red-50'
-                  : 'border-gray-200 hover:border-gray-300 focus:border-blue-400 focus:ring-2 focus:ring-blue-50'
-              )} />
-          </Field>
-        </div>
-      </div>
-
-      {/* Spread + Contravalor */}
-      {(spread !== null || contravalor !== null) && (
-        <div className="grid grid-cols-2 gap-3">
-          {spread !== null && (
-            <div className="flex items-center justify-between px-4 py-3 rounded-lg bg-gray-50 border border-gray-200">
-              <span className="text-xs text-gray-500">Spread calculado</span>
-              <span className={clsx('text-sm font-semibold font-mono', spreadAlert ? 'text-amber-600' : 'text-gray-800')}>{spread}</span>
-            </div>
-          )}
-          {contravalor !== null && (
-            <div className="flex items-center justify-between px-4 py-3 rounded-lg bg-gray-50 border border-gray-200">
-              <span className="text-xs text-gray-500">Contravalor estimado</span>
-              <span className="text-sm font-semibold font-mono text-gray-800">
-                {tipoOp === 'compra' ? 'PEN' : 'USD'} {fmtMoney(contravalor)}
-              </span>
-            </div>
-          )}
+      {/* Selector de moneda para cruzada */}
+      {isCruzada && (
+        <div>
+          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Moneda de la operación cruzada</p>
+          <div className="flex gap-3">
+            {[
+              { value: 'PEN', label: 'Soles (PEN)', desc: 'Cruzada soles' },
+              { value: 'USD', label: 'Dólares (USD)', desc: 'Cruzada dólares' },
+            ].map(({ value, label, desc }) => (
+              <button key={value} type="button"
+                onClick={() => { onChange('monedaCruzada', value); onChange('tcPunta', ''); onChange('tcPactado', '') }}
+                className={clsx('flex-1 text-left px-4 py-3 rounded-xl border-2 transition-all',
+                  monedaCruz === value ? 'border-purple-500 bg-purple-50' : 'border-gray-200 bg-white hover:border-gray-300')}>
+                <p className={clsx('text-sm font-semibold', monedaCruz === value ? 'text-purple-900' : 'text-gray-800')}>{label}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{desc}</p>
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
-      {spreadAlert && (
-        <div className="flex items-start gap-2.5 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-          <AlertTriangle size={14} className="text-amber-500 mt-0.5 shrink-0" />
-          <p className="text-xs text-amber-700">
-            <strong>Atención:</strong> El TC pactado difiere del TC de referencia en más de 0.01. Verifique con el cliente antes de continuar.
-          </p>
+      {/* Monto y tipo de cambio */}
+      {tipoOp && (
+        <div>
+          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-3">Monto y tipo de cambio</p>
+
+          {similar.length > 0 && (
+            <div className="flex items-start gap-2.5 px-3 py-3 rounded-lg bg-amber-50 border border-amber-200 mb-3">
+              <AlertTriangle size={13} className="text-amber-500 mt-0.5 shrink-0" />
+              <p className="text-[11px] text-amber-800">
+                <strong>Posible duplicado:</strong> hay {similar.length === 1 ? 'una operación similar' : `${similar.length} operaciones similares`} registrada{similar.length > 1 ? 's' : ''} hoy para este cliente con el mismo monto y TC ({similar.map(s => s.id).join(', ')}).
+              </p>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-4">
+            {/* Monto */}
+            <Field label={isCruzada ? `Monto a ingresar (flujo entrada)` : 'Monto'} required error={errors?.monto}>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400">{montoLabel}</span>
+                <input type="number" min="0" step="0.01" placeholder="0.00"
+                  value={monto}
+                  onChange={e => onChange('monto', e.target.value)}
+                  className={clsx('w-full pl-12 pr-3 py-2.5 rounded-lg border text-sm text-right outline-none transition-all',
+                    errors?.monto ? 'border-red-400 ring-2 ring-red-50'
+                    : 'border-gray-200 hover:border-gray-300 focus:border-blue-400 focus:ring-2 focus:ring-blue-50')} />
+              </div>
+            </Field>
+
+            {/* Fuente TC */}
+            <Field label="Fuente de tipo de cambio">
+              <AppSelect value={fuenteTC} onChange={v => onChange('fuenteTC', v)}
+                options={[
+                  { value: 'datatec', label: 'Datatec (referencial automático)' },
+                  { value: 'manual',  label: 'Manual'                           },
+                ]} />
+            </Field>
+
+            {/* TC punta */}
+            <Field
+              label="TC punta (referencia)"
+              required error={errors?.tcPunta}
+              hint={fuenteTC === 'datatec' && tipoOp
+                ? `Ref. ${isPostCutoff ? 'Pizarra' : 'Datatec'}: C ${(isPostCutoff ? pizarra.compra : datatec.compra).toFixed(3)} / V ${(isPostCutoff ? pizarra.venta : datatec.venta).toFixed(3)}`
+                : undefined}>
+              <div className="relative">
+                <input type="text" inputMode="decimal" placeholder="0.0000"
+                  value={tcPunta}
+                  disabled={fuenteTC === 'datatec'}
+                  onChange={e => onChange('tcPunta', e.target.value.replace(',', '.'))}
+                  className={inputTC(!!errors?.tcPunta, fuenteTC === 'datatec')} />
+                {fuenteTC === 'datatec' && (
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 pointer-events-none">
+                    <div className={clsx('w-1.5 h-1.5 rounded-full', status === 'connected' && !isPostCutoff ? 'bg-green-500 animate-pulse' : 'bg-amber-500')} />
+                    <span className="text-[10px] font-bold text-gray-400 uppercase">
+                      {isPostCutoff ? 'Pre.Pizarra' : status === 'connected' ? 'LIVE' : 'Caché'}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </Field>
+
+            {/* TC pactado */}
+            <Field label="TC pactado con el cliente" required error={errors?.tcPactado}>
+              <input type="text" inputMode="decimal" placeholder="0.0000"
+                value={tcPactado}
+                onChange={e => onChange('tcPactado', e.target.value.replace(',', '.'))}
+                className={inputTC(!!errors?.tcPactado, false)} />
+            </Field>
+          </div>
+
+          {/* Resultados calculados */}
+          {isCruzada && contravalor !== null && (() => {
+            // Intermedio USD: para soles = monto / tcPactado; para dólares = monto * tcPactado (en PEN)
+            const tcMax = Math.max(tcPactadoNum, tcPuntaNum)
+            const intermedio = monedaCruz === 'PEN'
+              ? montoNum / tcMax           // soles → USD intermedio
+              : montoNum * tcPuntaNum      // dólares → PEN intermedio
+            const intermedioLabel = monedaCruz === 'PEN' ? 'USD' : 'PEN'
+            return (
+              <div className="mt-4 rounded-xl border border-purple-200 bg-purple-50 overflow-hidden">
+                <div className="px-4 py-2 border-b border-purple-100">
+                  <p className="text-[10px] font-semibold text-purple-500 uppercase tracking-wider">Flujo de la operación cruzada</p>
+                </div>
+                <div className="px-4 py-3 space-y-2">
+                  {/* Fila ingreso */}
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-500 text-xs">Flujo ingreso (cliente entrega)</span>
+                    <span className="font-mono font-semibold text-gray-800">{monedaCruz} {fmtMoney(montoNum)}</span>
+                  </div>
+                  {/* Intermedio */}
+                  <div className="flex items-center justify-between text-xs text-gray-400 border-t border-purple-100 pt-2">
+                    <span>
+                      {monedaCruz === 'PEN'
+                        ? `Pata 1 — QAPAQ vende S/ a TC pactado ${tcPactadoNum.toFixed(4)}`
+                        : `Pata 1 — QAPAQ compra USD a TC pactado ${tcPactadoNum.toFixed(4)}`}
+                    </span>
+                    <span className="font-mono">{intermedioLabel} {fmtMoney(intermedio)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-gray-400">
+                    <span>
+                      {monedaCruz === 'PEN'
+                        ? `Pata 2 — QAPAQ compra USD a TC punta ${tcPuntaNum.toFixed(4)}`
+                        : `Pata 2 — QAPAQ vende USD a TC punta ${tcPuntaNum.toFixed(4)}`}
+                    </span>
+                    <span className="font-mono">{intermedioLabel} {fmtMoney(intermedio)}</span>
+                  </div>
+                  {/* Salida */}
+                  <div className="flex items-center justify-between text-sm border-t border-purple-100 pt-2">
+                    <span className="text-gray-500 text-xs">Flujo salida (cliente recibe)</span>
+                    <span className="font-mono font-semibold text-gray-800">{monedaCruz} {fmtMoney(contravalor)}</span>
+                  </div>
+                  {/* Fee */}
+                  <div className="flex items-center justify-between text-xs border-t border-purple-100 pt-2">
+                    <span className="text-purple-600 font-medium">Fee QAPAQ</span>
+                    <span className="font-mono font-semibold text-purple-700">{monedaCruz} {fmtMoney(fee)}</span>
+                  </div>
+                </div>
+                {/* Aviso si los TCs están en el orden incorrecto */}
+                {(() => {
+                  const ordenCorrecto = monedaCruz === 'PEN'
+                    ? tcPactadoNum > tcPuntaNum   // soles: pactado > punta
+                    : tcPactadoNum < tcPuntaNum   // dólares: pactado < punta
+                  return !ordenCorrecto ? (
+                    <div className="flex items-start gap-2 px-4 py-2.5 border-t border-amber-200 bg-amber-50">
+                      <AlertTriangle size={12} className="text-amber-500 shrink-0 mt-0.5" />
+                      <p className="text-[11px] text-amber-700">
+                        {monedaCruz === 'PEN'
+                          ? 'Cruzada soles: TC pactado debería ser mayor que TC punta. Verifique los valores ingresados.'
+                          : 'Cruzada dólares: TC pactado debería ser menor que TC punta. Verifique los valores ingresados.'
+                        }
+                      </p>
+                    </div>
+                  ) : null
+                })()}
+              </div>
+            )
+          })()}
+
+          {!isCruzada && spread !== null && (
+            <div className="grid grid-cols-2 gap-3 mt-4">
+              <div className="rounded-lg px-4 py-3 bg-gray-50 border border-gray-200">
+                <p className="text-[10px] text-gray-400 mb-1 uppercase tracking-wide">Spread calculado</p>
+                <p className={clsx('text-lg font-bold font-mono', spreadNegativo ? 'text-red-500' : 'text-emerald-600')}>
+                  {spread.toFixed(4)}
+                </p>
+              </div>
+              <div className="rounded-lg px-4 py-3 bg-gray-50 border border-gray-200">
+                <p className="text-[10px] text-gray-400 mb-1 uppercase tracking-wide">Contravalor estimado</p>
+                <p className="text-lg font-bold font-mono text-gray-700">
+                  {contravalor !== null ? `${contraLabel} ${fmtMoney(contravalor)}` : '—'}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {spreadNegativo && (
+            <div className="flex items-start gap-2.5 p-3 bg-amber-50 border border-amber-200 rounded-lg mt-3">
+              <AlertTriangle size={14} className="text-amber-500 mt-0.5 shrink-0" />
+              <p className="text-xs text-amber-800">
+                <strong>Atención:</strong> El TC pactado difiere del TC de referencia. Verifique antes de continuar.
+              </p>
+            </div>
+          )}
         </div>
       )}
 
@@ -494,34 +665,80 @@ function Step2({ formData, onChange, errors, marketData }) {
    STEP 3 — CUENTAS BANCARIAS
 ═══════════════════════════════════════════════ */
 function Step3({ formData, onChange, errors }) {
-  const cliente     = formData.clienteResult
-  const tipoOp      = formData.tipoOp ?? ''
-  const cuentaDest  = formData.cuentaDest  ?? ''
-  const cuentaQpaqOut = formData.cuentaQpaqOut ?? ''
-  const cuentaQpaqIn  = formData.cuentaQpaqIn  ?? ''
+  const cliente       = formData.clienteResult
+  const tipoOp        = formData.tipoOp ?? ''
+  const cuentasDest = formData.cuentasDest ?? [{ cuentaId: '', monto: '' }]
 
+  const monedaCruz  = formData.monedaCruzada ?? 'PEN'
+  const isCruzada   = tipoOp === 'cruzada'
   const cuentasCli  = cliente ? (CUENTAS_CLIENTE[cliente.id] ?? []) : []
-  const monedaOut   = tipoOp === 'compra' ? 'USD' : 'PEN'
-  const monedaIn    = tipoOp === 'compra' ? 'PEN' : 'USD'
+  // cruzada: misma moneda entrada y salida; el cliente recibe en la misma moneda que entrega
+  const monedaDest  = isCruzada ? monedaCruz : tipoOp === 'compra' ? 'PEN' : 'USD'
+  const monedaOut   = isCruzada ? monedaCruz : tipoOp === 'compra' ? 'USD' : 'PEN'
+  const monedaIn    = isCruzada ? monedaCruz : tipoOp === 'compra' ? 'PEN' : 'USD'
   const qpaqOutOpts = (CUENTAS_QAPAQ[monedaOut] ?? []).map(c => ({ value: c.id, label: `${c.banco} · ${c.numero} (${c.moneda})` }))
   const qpaqInOpts  = (CUENTAS_QAPAQ[monedaIn]  ?? []).map(c => ({ value: c.id, label: `${c.banco} · ${c.numero} (${c.moneda})` }))
 
-  const destOpts = [
-    { value: 'transitoria', label: 'Cuenta transitoria QAPAQ' },
-    ...cuentasCli.map(c => ({
+  // Monto total que el cliente recibirá (en monedaDest)
+  const inputVal  = parseFloat(formData.monto)    || 0
+  const tcPact    = parseFloat(formData.tcPactado) || 0
+  const tcRef     = parseFloat(formData.tcPunta)   || 0
+  const montoTotal = isCruzada
+    ? (inputVal > 0 && tcPact > 0 && tcRef > 0
+        ? Math.round(inputVal * Math.min(tcPact, tcRef) / Math.max(tcPact, tcRef) * 100) / 100
+        : null)
+    : tipoOp === 'compra'
+      ? (inputVal > 0 && tcPact > 0 ? Math.round(inputVal * tcPact * 100) / 100 : null)
+      : (inputVal > 0 && tcPact > 0 ? Math.round(inputVal / tcPact * 100) / 100 : null)
+
+  // Solo cuentas del cliente cuya moneda coincide con la que recibirá el cliente
+  const destOpts = cuentasCli
+    .filter(c => !tipoOp || c.moneda === monedaDest)
+    .map(c => ({
       value: c.id,
       label: `${c.banco} · ${c.numero} (${c.moneda}) — ${c.tipo === 'tercero' ? 'Tercero' : 'Propia'}`,
-    })),
-  ]
+    }))
 
-  const ctaDest   = cuentasCli.find(c => c.id === cuentaDest)
-  const convAlert = ctaDest?.tipo === 'tercero' && !ctaDest?.convenio
+  // Pre-rellenar monto de la primera fila con el total cuando está vacío
+  useEffect(() => {
+    if (montoTotal !== null && (formData.cuentasDest ?? [{ cuentaId: '', monto: '' }])[0]?.monto === '') {
+      const updated = (formData.cuentasDest ?? [{ cuentaId: '', monto: '' }]).map((row, i) =>
+        i === 0 ? { ...row, monto: montoTotal.toFixed(2) } : row
+      )
+      onChange('cuentasDest', updated)
+    }
+  }, [montoTotal]) // eslint-disable-line
 
-  function handleCuentaDest(val) {
-    onChange('cuentaDest', val)
-    const cta = cuentasCli.find(c => c.id === val)
-    onChange('convAlert', cta?.tipo === 'tercero' && !cta?.convenio ? true : false)
+  function syncRows(updated) {
+    const anyAlert = updated.some(row => {
+      const cta = cuentasCli.find(c => c.id === row.cuentaId)
+      return cta?.tipo === 'tercero' && !cta?.convenio
+    })
+    onChange('cuentasDest', updated)
+    onChange('convAlert', anyAlert)
   }
+
+  function handleCuentaChange(idx, val) {
+    syncRows(cuentasDest.map((row, i) => i === idx ? { ...row, cuentaId: val } : row))
+  }
+
+  function handleMontoChange(idx, val) {
+    syncRows(cuentasDest.map((row, i) => i === idx ? { ...row, monto: val } : row))
+  }
+
+  function addRow() {
+    syncRows([...cuentasDest, { cuentaId: '', monto: '' }])
+  }
+
+  function removeRow(idx) {
+    if (cuentasDest.length <= 1) return
+    syncRows(cuentasDest.filter((_, i) => i !== idx))
+  }
+
+  const convAlert  = formData.convAlert
+  const sumaMontos = cuentasDest.reduce((acc, row) => acc + (parseFloat(row.monto) || 0), 0)
+  const diferencia = montoTotal !== null ? montoTotal - sumaMontos : null
+  const showDif    = diferencia !== null && Math.abs(diferencia) > 0.005
 
   return (
     <div className="space-y-5">
@@ -530,28 +747,152 @@ function Step3({ formData, onChange, errors }) {
         <p className="text-xs text-gray-500">Selecciona las cuentas involucradas en la operación: destino del cliente y las cuentas QAPAQ de flujo.</p>
       </div>
 
+      {/* Cuentas destino del cliente */}
       <div>
-        <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-3">Cuenta del cliente</p>
-        <Field label="Cuenta destino del cliente" required error={errors?.cuentaDest}
-          hint="Cuenta donde el cliente recibirá los fondos de la operación">
-          <AppSelect value={cuentaDest} onChange={handleCuentaDest}
-            placeholder="Seleccionar cuenta…" options={destOpts} />
-        </Field>
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Cuenta del cliente</p>
+          <button type="button" onClick={addRow}
+            className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800 transition-colors">
+            <Plus size={13} /> Agregar cuenta
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          {cuentasDest.map((row, idx) => {
+            const ctaDest  = cuentasCli.find(c => c.id === row.cuentaId)
+            const rowAlert = ctaDest?.tipo === 'tercero' && !ctaDest?.convenio
+            const montoNum = parseFloat(row.monto)
+            return (
+              <div key={idx} className={clsx('rounded-xl border p-4 space-y-3',
+                rowAlert ? 'border-red-200 bg-red-50' : 'border-gray-200 bg-white')}>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium text-gray-600">
+                    {idx === 0 ? 'Cuenta principal' : `Cuenta adicional ${idx}`}
+                  </p>
+                  {cuentasDest.length > 1 && (
+                    <button type="button" onClick={() => removeRow(idx)}
+                      className="text-gray-400 hover:text-red-500 transition-colors">
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Cuenta destino" required={idx === 0}
+                    error={idx === 0 ? errors?.cuentaDest : undefined}
+                    hint="Cuenta donde el cliente recibirá los fondos">
+                    <AppSelect value={row.cuentaId} onChange={v => handleCuentaChange(idx, v)}
+                      placeholder="Seleccionar cuenta…" options={destOpts} />
+                  </Field>
+
+                  <Field label={`Monto a abonar (${monedaDest})`}
+                    hint={idx === 0 && montoTotal ? `Total operación: ${monedaDest} ${fmtMoney(montoTotal)}` : undefined}>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400">{monedaDest}</span>
+                      <input type="number" min="0" step="0.01" placeholder="0.00"
+                        value={row.monto}
+                        onChange={e => handleMontoChange(idx, e.target.value)}
+                        className="w-full pl-12 pr-3 py-2.5 rounded-lg border border-gray-200 text-sm text-right outline-none transition-all hover:border-gray-300 focus:border-blue-400 focus:ring-2 focus:ring-blue-50" />
+                    </div>
+                    {row.monto && !isNaN(montoNum) && montoNum > 0 && (
+                      <p className="text-[10px] text-gray-400 text-right mt-1">{fmtMoney(montoNum)}</p>
+                    )}
+                  </Field>
+                </div>
+
+                {rowAlert && (
+                  <div className="flex items-center gap-2 text-xs text-red-700">
+                    <AlertTriangle size={12} className="shrink-0 text-red-500" />
+                    <span>Cuenta de tercero sin convenio vigente (AL-FO-04).</span>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Diferencia cuando hay múltiples cuentas */}
+        {showDif && (
+          <div className="flex items-start gap-2.5 p-3 bg-amber-50 border border-amber-200 rounded-lg mt-3">
+            <AlertTriangle size={13} className="text-amber-500 mt-0.5 shrink-0" />
+            <p className="text-[11px] text-amber-800">
+              La suma de los montos ({monedaDest} {fmtMoney(sumaMontos)}) difiere del total ({monedaDest} {fmtMoney(montoTotal)}).
+              Diferencia: {fmtMoney(Math.abs(diferencia))}.
+            </p>
+          </div>
+        )}
       </div>
 
-      <div>
-        <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-3">Cuentas QAPAQ</p>
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="Cuenta QAPAQ — entrega fondos"
-            hint={`Moneda: ${monedaOut || '—'}`}>
-            <AppSelect value={cuentaQpaqOut} onChange={v => onChange('cuentaQpaqOut', v)}
-              placeholder="Seleccionar…" disabled={!tipoOp} options={qpaqOutOpts} />
-          </Field>
-          <Field label="Cuenta QAPAQ — recibe fondos"
-            hint={`Moneda: ${monedaIn || '—'}`}>
-            <AppSelect value={cuentaQpaqIn} onChange={v => onChange('cuentaQpaqIn', v)}
-              placeholder="Seleccionar…" disabled={!tipoOp} options={qpaqInOpts} />
-          </Field>
+      {/* QAPAQ Egreso e Ingreso — secciones con múltiples cuentas */}
+      <div className="space-y-4">
+        {/* Egreso */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+              Cuenta QAPAQ – Egreso
+              {monedaOut && <span className="ml-1 font-normal normal-case text-gray-300">({monedaOut})</span>}
+            </p>
+            <button type="button" disabled={!tipoOp}
+              onClick={() => onChange('cuentasQpaqEgreso', [...(formData.cuentasQpaqEgreso ?? ['']), ''])}
+              className={clsx('flex items-center gap-1 text-xs font-medium transition-colors',
+                tipoOp ? 'text-blue-600 hover:text-blue-800' : 'text-gray-300 cursor-not-allowed')}>
+              <Plus size={12} /> Agregar
+            </button>
+          </div>
+          <div className="space-y-2">
+            {(formData.cuentasQpaqEgreso ?? ['']).map((cId, idx) => (
+              <div key={idx} className="flex items-center gap-2">
+                <div className="flex-1">
+                  <AppSelect value={cId} onChange={v => {
+                    const updated = (formData.cuentasQpaqEgreso ?? ['']).map((x, i) => i === idx ? v : x)
+                    onChange('cuentasQpaqEgreso', updated)
+                  }} placeholder="Seleccionar…" disabled={!tipoOp} options={qpaqOutOpts} />
+                </div>
+                {(formData.cuentasQpaqEgreso ?? ['']).length > 1 && (
+                  <button type="button"
+                    onClick={() => onChange('cuentasQpaqEgreso', (formData.cuentasQpaqEgreso ?? ['']).filter((_, i) => i !== idx))}
+                    className="text-gray-400 hover:text-red-500 transition-colors shrink-0">
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Ingreso */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+              Cuenta QAPAQ – Ingreso
+              {monedaIn && <span className="ml-1 font-normal normal-case text-gray-300">({monedaIn})</span>}
+            </p>
+            <button type="button" disabled={!tipoOp}
+              onClick={() => onChange('cuentasQpaqIngreso', [...(formData.cuentasQpaqIngreso ?? ['']), ''])}
+              className={clsx('flex items-center gap-1 text-xs font-medium transition-colors',
+                tipoOp ? 'text-blue-600 hover:text-blue-800' : 'text-gray-300 cursor-not-allowed')}>
+              <Plus size={12} /> Agregar
+            </button>
+          </div>
+          <div className="space-y-2">
+            {(formData.cuentasQpaqIngreso ?? ['']).map((cId, idx) => (
+              <div key={idx} className="flex items-center gap-2">
+                <div className="flex-1">
+                  <AppSelect value={cId} onChange={v => {
+                    const updated = (formData.cuentasQpaqIngreso ?? ['']).map((x, i) => i === idx ? v : x)
+                    onChange('cuentasQpaqIngreso', updated)
+                  }} placeholder="Seleccionar…" disabled={!tipoOp} options={qpaqInOpts} />
+                </div>
+                {(formData.cuentasQpaqIngreso ?? ['']).length > 1 && (
+                  <button type="button"
+                    onClick={() => onChange('cuentasQpaqIngreso', (formData.cuentasQpaqIngreso ?? ['']).filter((_, i) => i !== idx))}
+                    className="text-gray-400 hover:text-red-500 transition-colors shrink-0">
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -559,7 +900,7 @@ function Step3({ formData, onChange, errors }) {
         <div className="flex items-start gap-2.5 p-3 bg-red-50 border border-red-200 rounded-lg">
           <AlertTriangle size={14} className="text-red-500 mt-0.5 shrink-0" />
           <p className="text-xs text-red-700">
-            <strong>AL-FO-04:</strong> La cuenta de tercero seleccionada no tiene convenio de pago vigente. No se puede confirmar la cotización. Regularice la situación en la ficha del cliente.
+            <strong>AL-FO-04:</strong> Una o más cuentas de tercero no tienen convenio de pago vigente. No se puede confirmar la cotización. Regularice la situación en la ficha del cliente.
           </p>
         </div>
       )}
@@ -621,15 +962,33 @@ function Step4({ formData, onConfirmar, confirmed, correlativo, onBack }) {
     )
   }
 
-  const cliente    = formData.clienteResult
-  const tipoOp     = formData.tipoOp ?? ''
-  const monto      = formData.monto ?? ''
-  const tcPactado  = formData.tcPactado ?? ''
-  const tcPunta    = formData.tcPunta ?? ''
-  const spread     = tcPactado && tcPunta ? (+tcPactado - +tcPunta).toFixed(4) : null
-  const spreadAlert = spread !== null && Math.abs(+spread) > 0.01
-  const contravalor = monto && tcPactado && tipoOp
-    ? tipoOp === 'compra' ? +monto * +tcPactado : +monto / +tcPactado : null
+  const cliente     = formData.clienteResult
+  const tipoOp      = formData.tipoOp         ?? ''
+  const monedaCruz  = formData.monedaCruzada   ?? 'PEN'
+  const monto       = formData.monto           ?? ''
+  const tcPactado   = formData.tcPactado       ?? ''
+  const tcPunta     = formData.tcPunta         ?? ''
+  const cuentasDest = formData.cuentasDest     ?? []
+  const isCruzada   = tipoOp === 'cruzada'
+  const monedaMonto = isCruzada ? monedaCruz : tipoOp === 'compra' ? 'USD' : 'PEN'
+  const monedaDest  = isCruzada ? monedaCruz : tipoOp === 'compra' ? 'PEN' : 'USD'
+  const tcPuntaN    = parseFloat(tcPunta)
+  const tcPactadoN  = parseFloat(tcPactado)
+  const montoN      = parseFloat(monto)
+  const spreadVal   = !isNaN(tcPuntaN) && !isNaN(tcPactadoN)
+    ? (isCruzada
+        ? Math.abs(tcPactadoN - tcPuntaN)
+        : tipoOp === 'compra' ? tcPuntaN - tcPactadoN : tcPactadoN - tcPuntaN)
+    : null
+  const spreadAlert = spreadVal !== null && spreadVal < 0
+  const contravalor = !isNaN(montoN) && montoN > 0 && !isNaN(tcPactadoN) && tcPactadoN > 0
+    ? isCruzada
+      ? (!isNaN(tcPuntaN) && tcPuntaN > 0
+          ? montoN * Math.min(tcPactadoN, tcPuntaN) / Math.max(tcPactadoN, tcPuntaN)
+          : null)
+      : tipoOp === 'compra' ? montoN * tcPactadoN : montoN / tcPactadoN
+    : null
+  const fee = isCruzada && contravalor !== null ? montoN - contravalor : null
 
   return (
     <div>
@@ -648,25 +1007,63 @@ function Step4({ formData, onConfirmar, confirmed, correlativo, onBack }) {
           <ResumenRow label="Tipo"
             value={tipoOp === 'compra'
               ? <span className="inline-flex items-center gap-1 text-emerald-700 font-medium"><ArrowDownLeft size={12} /> Compra</span>
-              : <span className="inline-flex items-center gap-1 text-blue-700 font-medium"><ArrowUpRight size={12} /> Venta</span>
+              : tipoOp === 'venta'
+                ? <span className="inline-flex items-center gap-1 text-blue-700 font-medium"><ArrowUpRight size={12} /> Venta</span>
+                : <span className="inline-flex items-center gap-1 text-purple-700 font-medium"><ArrowLeftRight size={12} /> Cruzada {monedaCruz === 'PEN' ? 'soles' : 'dólares'}</span>
             }
           />
-          <ResumenRow label="Monto USD" value={monto ? `USD ${fmtMoney(+monto)}` : '—'} />
-          <ResumenRow label="TC pactado" value={tcPactado ? (+tcPactado).toFixed(3) : '—'} />
-          <ResumenRow label="Contravalor PEN" value={contravalor ? `PEN ${fmtMoney(contravalor)}` : '—'} />
-          <ResumenRow label="Spread"
-            value={spread
-              ? <span className={clsx('font-mono', spreadAlert && 'text-amber-600 font-semibold')}>{spread}</span>
-              : '—'
-            }
+          <ResumenRow label={isCruzada ? `Flujo ingreso (${monedaMonto})` : `Monto ${monedaMonto}`}
+            value={monto ? `${monedaMonto} ${fmtMoney(+monto)}` : '—'} />
+          <ResumenRow label="TC pactado" value={tcPactado ? (+tcPactado).toFixed(4) : '—'} />
+          <ResumenRow label="TC punta" value={tcPunta ? (+tcPunta).toFixed(4) : '—'} />
+          <ResumenRow label={isCruzada ? `Flujo salida (${monedaDest})` : `Contravalor ${monedaDest}`}
+            value={contravalor !== null ? `${monedaDest} ${fmtMoney(contravalor)}` : '—'}
           />
+          {isCruzada && fee !== null
+            ? <ResumenRow label="Fee QAPAQ"
+                value={<span className="text-purple-700 font-semibold">{monedaCruz} {fmtMoney(fee)}</span>}
+              />
+            : <ResumenRow label="Spread"
+                value={spreadVal !== null
+                  ? <span className={clsx('font-mono', spreadAlert && 'text-amber-600 font-semibold')}>{spreadVal.toFixed(4)}</span>
+                  : '—'}
+              />
+          }
+          {isCruzada && (
+            <ResumenRow label="Registros BCRP"
+              value={<span className="text-purple-700 font-medium">2 registros (compra + venta)</span>}
+            />
+          )}
         </ResumenCard>
+
+        {cuentasDest.some(r => r.cuentaId || r.monto) && (
+          <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+            <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-200">
+              <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Cuentas destino del cliente</p>
+            </div>
+            <div className="divide-y divide-gray-100">
+              {cuentasDest.map((row, idx) => (
+                <div key={idx} className="px-4 py-3 flex items-center justify-between gap-4">
+                  <p className="text-xs text-gray-500 shrink-0">
+                    {idx === 0 ? 'Principal' : `Adicional ${idx}`}
+                  </p>
+                  <p className="text-sm text-gray-800 font-medium flex-1 text-right">
+                    {row.cuentaId || '—'}
+                  </p>
+                  <p className="text-sm font-mono text-gray-700 shrink-0">
+                    {row.monto ? `${monedaDest} ${fmtMoney(+row.monto)}` : '—'}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {spreadAlert && (
           <div className="flex items-start gap-2.5 p-3 bg-amber-50 border border-amber-200 rounded-lg">
             <AlertTriangle size={14} className="text-amber-500 mt-0.5 shrink-0" />
-            <p className="text-xs text-amber-700">
-              <strong>Recuerde:</strong> El spread supera 0.01. Confirme que el TC fue acordado con el cliente.
+            <p className="text-xs text-amber-800">
+              <strong>Atención:</strong> El TC pactado difiere del TC de referencia en más de 0.01. Verifique con el cliente antes de confirmar.
             </p>
           </div>
         )}
@@ -699,12 +1096,13 @@ function validateStep(step, formData) {
   if (step === 2) {
     if (!formData.tipoOp) e.tipoOp = 'Selecciona el tipo de operación.'
     const m = parseFloat(formData.monto)
-    if (!formData.monto || isNaN(m) || m <= 0) e.monto = 'Ingresa un monto válido mayor a cero.'
-    if (!formData.tcPactado || isNaN(parseFloat(formData.tcPactado))) e.tcPactado = 'Ingresa el TC pactado con el cliente.'
-    if (!formData.tcPunta   || isNaN(parseFloat(formData.tcPunta)))   e.tcPunta   = 'Ingresa el TC de referencia.'
+    const t = parseFloat(formData.tcPactado)
+    if (!formData.monto || isNaN(m) || m <= 0) e.monto = formData.tipoOp === 'compra' ? 'Ingresa el monto en USD.' : 'Ingresa el monto en PEN.'
+    if (!formData.tcPactado || isNaN(t) || t <= 0) e.tcPactado = 'Ingresa el TC pactado con el cliente.'
+    if (!formData.tcPunta || isNaN(parseFloat(formData.tcPunta))) e.tcPunta = 'Ingresa el TC de referencia.'
   }
   if (step === 3) {
-    if (formData.convAlert) e.cuentaDest = 'La cuenta de tercero no tiene convenio vigente (AL-FO-04). Regulariza antes de continuar.'
+    if (formData.convAlert) e.cuentaDest = 'Una o más cuentas de tercero no tienen convenio vigente (AL-FO-04). Regulariza antes de continuar.'
   }
   return e
 }
@@ -713,23 +1111,25 @@ function validateStep(step, formData) {
    INITIAL STATE
 ═══════════════════════════════════════════════ */
 const INITIAL_FORM = {
-  clienteQuery:  '',
-  clienteResult: null,
-  tipoOp:        '',
-  monto:         '',
-  fuenteTC:      'datatec',
+  clienteQuery:   '',
+  clienteResult:  null,
+  tipoOp:         '',
+  monedaCruzada:  'PEN',
+  monto:          '',
+  montoPen:       '',
+  fuenteTC:       'datatec',
   tcPunta:       '',
   tcPactado:     '',
-  cuentaDest:    '',
-  cuentaQpaqOut: '',
-  cuentaQpaqIn:  '',
-  convAlert:     false,
+  cuentasDest:       [{ cuentaId: '', monto: '' }],
+  cuentasQpaqEgreso: [''],
+  cuentasQpaqIngreso:[''],
+  convAlert:         false,
 }
 
 /* ═══════════════════════════════════════════════
    MAIN WIZARD
 ═══════════════════════════════════════════════ */
-export default function CotizacionWizard({ onBack, onCreada, marketData }) {
+export default function CotizacionWizard({ onBack, onCreada, marketData, ops }) {
   const [step,       setStep]       = useState(1)
   const [formData,   setFormData]   = useState(INITIAL_FORM)
   const [errors,     setErrors]     = useState({})
@@ -757,23 +1157,39 @@ export default function CotizacionWizard({ onBack, onCreada, marketData }) {
     const id  = nextCorrelativo()
     const now = new Date()
     const hora = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`
-    const cliente = formData.clienteResult
-    const monto   = parseFloat(formData.monto)
-    const tc      = parseFloat(formData.tcPactado)
-    const montoPEN = formData.tipoOp === 'compra' ? Math.round(monto * tc * 100) / 100 : Math.round((monto / tc) * 100) / 100
+    const cliente    = formData.clienteResult
+    const isCruzada  = formData.tipoOp === 'cruzada'
+    const tc         = parseFloat(formData.tcPactado)
+    const tcRef      = parseFloat(formData.tcPunta) || undefined
+    const inputVal   = parseFloat(formData.monto)
+    const montoUSD   = isCruzada || formData.tipoOp === 'compra'
+      ? inputVal
+      : Math.round(inputVal / tc * 100) / 100
+    const montoPEN   = isCruzada
+      ? null
+      : formData.tipoOp === 'compra'
+        ? Math.round(inputVal * tc * 100) / 100
+        : inputVal
+    const montoContravalor = isCruzada && tcRef
+      ? Math.round(inputVal * Math.min(tc, tcRef) / Math.max(tc, tcRef) * 100) / 100
+      : null
 
     const newOp = {
       id,
       clienteNombre: cliente.nombre,
       tipo:     formData.tipoOp,
-      montoUSD: monto,
+      ...(isCruzada && { monedaCruzada: formData.monedaCruzada ?? 'PEN', montoContravalor }),
+      montoUSD,
       tc,
       montoPEN,
-      estado: 'reservada',
-      fecha:  todayStr(),
+      tcRef,
+      tcFuente: formData.fuenteTC === 'datatec' ? 'Datatec' : 'Manual',
+      estado:   'reservada',
+      fecha:    todayStr(),
       hora,
-      trader: cliente.traderNombre,
-      mesa:   cliente.mesa,
+      trader:   cliente.traderNombre,
+      mesa:     cliente.mesa,
+      backOffice: null,
       solAnulacion: null,
       historial: [],
       fechaAnulacion: null, horaAnulacion: null, anuladoPor: null, causaAnulacion: null,
@@ -806,7 +1222,7 @@ export default function CotizacionWizard({ onBack, onCreada, marketData }) {
       <div className={clsx('bg-white rounded-2xl border border-gray-100 p-8 shadow-sm mb-6', confirmed && 'text-center')}>
         <div className="mb-4">
           {step === 1 && <Step1 formData={formData} onChange={handleChange} errors={errors} />}
-          {step === 2 && <Step2 formData={formData} onChange={handleChange} errors={errors} marketData={marketData} />}
+          {step === 2 && <Step2 formData={formData} onChange={handleChange} errors={errors} marketData={marketData} ops={ops} />}
           {step === 3 && <Step3 formData={formData} onChange={handleChange} errors={errors} />}
           {step === 4 && <Step4 formData={formData} onConfirmar={handleConfirmar} confirmed={confirmed} correlativo={correlativo} onBack={onBack} />}
         </div>

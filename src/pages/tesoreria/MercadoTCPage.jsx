@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import {
-  TrendingUp, Activity, Clock, Sliders, Save,
+  TrendingUp, TrendingDown, Minus, Activity, Clock, Sliders, Save,
   RefreshCw, Wifi, WifiOff, AlertCircle, Info,
   ChevronRight, ChevronLeft, Check, DollarSign, ArrowDownLeft, ArrowUpRight, Eye,
   FileSpreadsheet, FileText, Search, X, Filter, ChevronDown
@@ -84,6 +84,26 @@ function Section({ title, icon: Icon, children, className, action }) {
       <div className="p-5">
         {children}
       </div>
+    </div>
+  )
+}
+
+function TrendBadge({ current, previous }) {
+  if (previous == null) return null
+  const delta = current - previous
+  const isUp   = delta > 0.00001
+  const isDown = delta < -0.00001
+  const sign   = isUp ? '+' : ''
+  const Icon   = isUp ? TrendingUp : isDown ? TrendingDown : Minus
+  const cls    = isUp
+    ? 'text-emerald-600 bg-emerald-50 border-emerald-200'
+    : isDown
+    ? 'text-red-500 bg-red-50 border-red-200'
+    : 'text-gray-400 bg-gray-50 border-gray-200'
+  return (
+    <div className={clsx('flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-bold font-mono', cls)}>
+      <Icon size={11} />
+      {sign}{delta.toFixed(4)}
     </div>
   )
 }
@@ -231,6 +251,7 @@ function PizarraTab({ marketData, onUpdatePizarra, onVerHistorial }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const isDatatecActive = mode === 'datatec'
+  const prevEntry = history[0] ?? null
 
   function handleSave() {
     setError(''); const b = parseFloat(b_input); const o = parseFloat(o_input)
@@ -265,11 +286,17 @@ function PizarraTab({ marketData, onUpdatePizarra, onVerHistorial }) {
           <Section title="Evolución Datatec (Live)" icon={TrendingUp}>
             <div className="space-y-4">
               <div className="px-4 py-3.5 rounded-lg bg-white" style={{ border: '1px solid var(--color-border)' }}>
-                <div className="flex items-center justify-between mb-3"><p className="text-[10px] font-bold text-gray-400 uppercase">Compra</p><ArrowDownLeft size={14} className="text-emerald-500" /></div>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase">Compra</p>
+                  <TrendBadge current={datatec.compra} previous={prevEntry?.compra} />
+                </div>
                 <p className="text-3xl font-bold text-gray-800 font-mono tracking-tighter">{datatec.compra.toFixed(4)}</p>
               </div>
               <div className="px-4 py-3.5 rounded-lg bg-white" style={{ border: '1px solid var(--color-border)' }}>
-                <div className="flex items-center justify-between mb-3"><p className="text-[10px] font-bold text-gray-400 uppercase">Venta</p><ArrowUpRight size={14} className="text-blue-500" /></div>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase">Venta</p>
+                  <TrendBadge current={datatec.venta} previous={prevEntry?.venta} />
+                </div>
                 <p className="text-3xl font-bold text-gray-800 font-mono tracking-tighter">{datatec.venta.toFixed(4)}</p>
               </div>
             </div>

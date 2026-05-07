@@ -1107,8 +1107,8 @@ export default function ConveniosTab({ clienteId, clienteNombre }) {
           <thead>
             <tr style={{ background: 'var(--color-surface-bg)', borderBottom: '1px solid var(--color-border)' }}>
               {(clienteId
-                ? ['Código', 'Tipo', 'Fecha firma', 'Vencimiento', 'Repres.', 'Estado', 'Rev. Legal', '']
-                : ['Código', 'Cliente', 'Tipo', 'Fecha firma', 'Vencimiento', 'Repres.', 'Estado', 'Rev. Legal', '']
+                ? ['Código', 'Tipo', 'Fecha firma', 'Estado', '']
+                : ['Código', 'Cliente', 'Tipo', 'Fecha firma', 'Estado', '']
               ).map(h => (
                 <th key={h} className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 whitespace-nowrap">{h}</th>
               ))}
@@ -1184,10 +1184,6 @@ export default function ConveniosTab({ clienteId, clienteNombre }) {
 function DocRow({ doc: d, showCliente = true, onVerDetalle, onEditar, onReview, onInvalidar }) {
   const ts  = TIPO_DOC[d.tipoDoc]   ?? TIPO_DOC.otro
   const es  = ESTADO_DOC[d.estado]  ?? ESTADO_DOC.pendiente
-  const rl  = d.revisionLegal ? REVISION_LEGAL[d.revisionLegal] : null
-  const RevIcon = rl?.Icon
-  const days = d.fechaVencimiento ? daysUntil(d.fechaVencimiento) : null
-  const showAlert = d.estado === 'vigente' && days !== null && days >= 0 && days < 5
   const canEdit     = ['pendiente', 'vigente'].includes(d.estado)
   const canReview   = d.estado === 'pendiente' && ['convenio_marco', 'vigencia_poderes'].includes(d.tipoDoc)
   const canInvalidar = d.estado === 'vigente'
@@ -1218,62 +1214,11 @@ function DocRow({ doc: d, showCliente = true, onVerDetalle, onEditar, onReview, 
       </td>
 
       <td className="px-4 py-3">
-        {d.fechaVencimiento ? (
-          <div>
-            <p className={clsx('text-sm', days !== null && days < 0 ? 'text-red-600 font-medium' : 'text-gray-700')}>
-              {d.fechaVencimiento}
-            </p>
-            {days !== null && (
-              showAlert ? (
-                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-600 mt-0.5">
-                  <AlertTriangle size={10} /> AL-GC-09 · {days}d
-                </span>
-              ) : days < 0 ? (
-                <span className="text-[10px] text-red-500">Vencido hace {Math.abs(days)}d</span>
-              ) : (
-                <span className="text-[10px] text-gray-400">{days}d restantes</span>
-              )
-            )}
-          </div>
-        ) : (
-          <span className="text-xs text-gray-400">Sin vencimiento</span>
-        )}
-      </td>
-
-      <td className="px-4 py-3">
-        {d.representantes.length > 0 ? (
-          <span className="inline-flex items-center gap-1 text-xs text-gray-600">
-            {d.representantes.length} rep.
-          </span>
-        ) : (
-          <span className="text-xs text-gray-300">—</span>
-        )}
-      </td>
-
-      <td className="px-4 py-3">
         <span className={clsx('inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium', es.bg, es.text)}>
           <span className={clsx('w-1.5 h-1.5 rounded-full shrink-0', es.dot)} />{es.label}
         </span>
         {d.invalidadoPor && (
           <p className="text-[10px] text-gray-400 mt-0.5">por {d.invalidadoPor}</p>
-        )}
-      </td>
-
-      <td className="px-4 py-3">
-        {rl ? (
-          <span className={clsx('inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium', rl.bg, rl.text)}>
-            {RevIcon && <RevIcon size={11} />}
-            {rl.label}
-          </span>
-        ) : ['convenio_marco', 'vigencia_poderes'].includes(d.tipoDoc) ? (
-          <span className="text-xs text-gray-400">Sin revisión</span>
-        ) : (
-          <span className="text-xs text-gray-300">—</span>
-        )}
-        {d.observacionesLegal && (
-          <p className="text-[10px] text-red-500 mt-0.5 truncate max-w-[120px]" title={d.observacionesLegal}>
-            {d.observacionesLegal}
-          </p>
         )}
       </td>
 
