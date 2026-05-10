@@ -1,9 +1,10 @@
-import { useState, useRef, useEffect } from 'react'
+﻿import { useState, useRef, useEffect } from 'react'
 import {
   Search, X, AlertTriangle, Info, CheckCircle2, ChevronDown,
   ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Check, ArrowLeft,
 } from 'lucide-react'
 import clsx from 'clsx'
+import { fmtMoney } from '../../utils/format.js'
 
 /* ═══════════════════════════════════════════════
    MOCK DATA
@@ -49,10 +50,6 @@ const TC_DATATEC = { compra: 3.739, venta: 3.744 }
 /* ═══════════════════════════════════════════════
    HELPERS
 ═══════════════════════════════════════════════ */
-function fmtMoney(n) {
-  if (!n && n !== 0) return ''
-  return parseFloat(n).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
 
 let _seq = 9
 function nextCorrelativo() {
@@ -627,3 +624,4 @@ export default function RegistroFXPage({ role = 'trader', onBack }) {
     </div>
   )
 }
+

@@ -2,7 +2,8 @@ import { useState, useRef } from 'react'
 import {
   ArrowLeft, Check, Upload, X, CheckCircle2,
   FileText, User, Briefcase, Building2, Shield,
-  AlertCircle, AlertTriangle, Info, ChevronRight,
+  AlertCircle, AlertTriangle, Info, ChevronRight, Trash2,
+  ExternalLink,
 } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -26,18 +27,17 @@ const TIPOS = [
 
 /* ═══ Business logic helpers ═══════════════════ */
 
-function getDocsRequeridos({ tipoPersona, esPEP, operaATerceros, clasificacionRiesgo }) {
+function getDocsRequeridos({ tipoPersona, esPEP, clasificacionRiesgo }) {
   const docs = []
   docs.push({ id: 'consultaBank',    label: 'Consulta Bank+',                             req: true,  grupo: 'Base'     })
 
   if (tipoPersona === 'PN' || tipoPersona === 'P10') {
     docs.push({ id: 'doiCliente',      label: 'DOI del cliente',                            req: true,  grupo: 'Base'     })
-    docs.push({ id: 'djOrigenFondos',  label: 'DJ Origen de Fondos (PN)',                   req: esPEP !== 'si', grupo: 'Base' })
+    if (esPEP !== 'si') docs.push({ id: 'djOrigenFondos',  label: 'DJ Origen de Fondos (PN)',                   req: true, grupo: 'Base' })
     if (esPEP === 'si') {
       docs.push({ id: 'djOrigenPEP', label: 'DJ Origen de Fondos PEP',                    req: true,  grupo: 'PEP'      })
       docs.push({ id: 'fichaPEP',    label: 'Ficha PEP',                                  req: true,  grupo: 'PEP'      })
     }
-    docs.push({ id: 'cartaTerceros',   label: 'Carta de Autorización Terceros',             req: false, grupo: 'Otros'    })
   }
 
   if (tipoPersona === 'PJ' || tipoPersona === 'EF') {
@@ -132,43 +132,61 @@ function RadioGroup({ value, onChange, options }) {
 ═══════════════════════════════════════════════ */
 function DocItem({ doc, status, onUpload, onRemove, hasError }) {
   const fileRef = useRef(null)
-  const loaded = status?.loaded
+  const files = status?.files ?? []
 
   return (
-    <div className={clsx(
-      'flex items-center gap-3 p-3 rounded-lg border transition-all',
-      hasError ? 'border-red-300 bg-red-50'
-      : loaded  ? 'border-green-200 bg-green-50'
-      :           'border-gray-200 bg-white'
-    )}>
-      <FileText size={14} className={loaded ? 'text-green-500 shrink-0' : 'text-gray-400 shrink-0'} />
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-gray-800 truncate">{doc.label}</p>
-        {loaded   && <p className="text-[11px] text-gray-500 truncate mt-0.5">{status.filename}</p>}
-        {hasError && <p className="text-[11px] text-red-500 mt-0.5 flex items-center gap-1"><AlertCircle size={10} />Obligatorio para continuar</p>}
-      </div>
-      <div className="flex items-center gap-2 shrink-0">
-        {doc.req  && !loaded && !hasError && <span className="text-[10px] font-medium text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">Requerido</span>}
-        {doc.grupo === 'PEP' && !loaded   && <span className="text-[10px] font-medium text-red-600 bg-red-100 px-1.5 py-0.5 rounded">PEP</span>}
-        {doc.grupo === 'RF'  && !loaded   && <span className="text-[10px] font-medium text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded">RF</span>}
-        {loaded ? (
-          <>
-            <span className="text-[10px] font-medium text-green-600 bg-green-100 px-1.5 py-0.5 rounded flex items-center gap-1">
-              <Check size={9} />Cargado
-            </span>
-            <button onClick={onRemove} className="text-gray-300 hover:text-red-400 transition-colors"><X size={14} /></button>
-          </>
-        ) : (
+    <div>
+      <div className={clsx(
+        'flex items-center gap-3 p-3 rounded-lg border transition-all',
+        hasError       ? 'border-red-300 bg-red-50'
+        : files.length ? 'border-green-200 bg-green-50'
+        :                'border-gray-200 bg-white'
+      )}>
+        <FileText size={14} className={files.length ? 'text-green-500 shrink-0' : 'text-gray-400 shrink-0'} />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-gray-800 truncate">{doc.label}</p>
+          {files.length > 0 && (
+            <p className="text-[11px] text-gray-500 mt-0.5">{files.length} archivo(s)</p>
+          )}
+          {hasError && <p className="text-[11px] text-red-500 mt-0.5 flex items-center gap-1"><AlertCircle size={10} />Obligatorio para continuar</p>}
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {doc.req  && !files.length && !hasError && <span className="text-[10px] font-medium text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">Requerido</span>}
+          {doc.grupo === 'PEP' && !files.length && <span className="text-[10px] font-medium text-red-600 bg-red-100 px-1.5 py-0.5 rounded">PEP</span>}
+          {doc.grupo === 'RF'  && !files.length && <span className="text-[10px] font-medium text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded">RF</span>}
           <button
             onClick={() => fileRef.current?.click()}
             className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
           >
-            <Upload size={11} />Adjuntar
+            <Upload size={11} />Adjuntar{files.length > 0 && ` +${files.length}`}
           </button>
-        )}
+          {files.length > 0 && (
+            <span className="text-[10px] font-medium text-green-600 bg-green-100 px-1.5 py-0.5 rounded flex items-center gap-1">
+              <Check size={9} />Cargado
+            </span>
+          )}
+        </div>
+        <input ref={fileRef} type="file" multiple className="hidden" accept=".pdf,.jpg,.jpeg,.png"
+          onChange={e => {
+            const selected = Array.from(e.target.files ?? [])
+            if (selected.length) onUpload(selected.map(f => f.name))
+            e.target.value = ''
+          }} />
       </div>
-      <input ref={fileRef} type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png"
-        onChange={e => { const f = e.target.files?.[0]; if (f) onUpload(f.name); e.target.value = '' }} />
+      {files.length > 0 && (
+        <div className="ml-8 mt-2 pt-1 space-y-1.5">
+          {files.map(f => (
+            <div key={f.id} className="flex items-center gap-1.5 text-xs text-gray-500">
+              <FileText size={10} className="shrink-0 text-gray-400" />
+              <span className="truncate">{f.name}</span>
+              <button onClick={() => onRemove(f.id)}
+                className="text-gray-300 hover:text-red-500 transition-colors shrink-0 ml-1" title="Eliminar archivo">
+                <Trash2 size={12} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -537,11 +555,11 @@ function Step3({ formData, docState, onUpload, onRemove, errors }) {
             <div key={grupo}>
               <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-2">{GRUPO_LABELS[grupo]}</p>
               <div className="space-y-2">
-                {grupoDoc.map(doc => (
-                  <DocItem key={doc.id} doc={doc} status={docState[doc.id]}
-                    onUpload={fn => onUpload(doc.id, fn)}
-                    onRemove={() => onRemove(doc.id)}
-                    hasError={!!errors?.[doc.id]} />
+                  {grupoDoc.map(doc => (
+                    <DocItem key={doc.id} doc={doc} status={docState[doc.id]}
+                      onUpload={filenames => onUpload(doc.id, filenames)}
+                      onRemove={fileId => onRemove(doc.id, fileId)}
+                      hasError={!!errors?.[doc.id]} />
                 ))}
               </div>
             </div>
@@ -698,8 +716,30 @@ function PLAFTCard({ value, current, label, color, onClick }) {
 }
 
 function Step4({ formData, onChange, errors }) {
+  const EXCEL_URL = 'https://drive.google.com' // TODO: reemplazar con URL real del Excel PLAFT
+
+  function handleCruceExcel() {
+    window.open(EXCEL_URL, '_blank', 'noopener,noreferrer')
+  }
+
   return (
     <div className="space-y-6">
+      {/* Cruce Excel externo */}
+      <div className="flex items-center justify-between p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <div>
+          <p className="text-sm font-semibold text-blue-800">Cruce con lista PLAFT externa</p>
+          <p className="text-xs text-blue-600 mt-0.5">Abre el archivo Excel con la base de datos PLAFT vigente en una nueva ventana.</p>
+        </div>
+        <button
+          type="button"
+          onClick={handleCruceExcel}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors shadow-sm active:scale-95 whitespace-nowrap"
+        >
+          <ExternalLink size={15} />
+          Cruce Excel
+        </button>
+      </div>
+
       {/* Cruce PLAFT */}
       <PLAFTCruce formData={formData} />
 
@@ -867,7 +907,7 @@ const INITIAL_FORM = {
   direccionSunat: '', ubigeo: '', ciiu: '',
   correoPacto: '', correoFacturacion: '',
   condicionLaboral: '', residenciasPeru: '', esPEP: '',
-  operaATerceros: '', consultaBankplus: '',
+  consultaBankplus: '',
   clasificacionRiesgo: '',
   resultadoPLAFT: '', notasPLAFT: '',
 }
@@ -930,13 +970,25 @@ export default function ClienteWizard({ onBack, onSave, nextCode }) {
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: undefined }))
   }
 
-  function handleUpload(docId, filename) {
-    setDocState(prev => ({ ...prev, [docId]: { loaded: true, filename } }))
+  function handleUpload(docId, filenames) {
+    setDocState(prev => {
+      const existing = prev[docId]?.files ?? []
+      const newFiles = filenames.map((name, i) => ({ name, id: `${Date.now()}_${i}` }))
+      return { ...prev, [docId]: { loaded: true, files: [...existing, ...newFiles] } }
+    })
     if (errors[docId]) setErrors(prev => ({ ...prev, [docId]: undefined }))
   }
 
-  function handleRemoveDoc(docId) {
-    setDocState(prev => { const n = { ...prev }; delete n[docId]; return n })
+  function handleRemoveDoc(docId, fileId) {
+    setDocState(prev => {
+      const current = prev[docId]
+      if (!current) return prev
+      const remaining = current.files.filter(f => f.id !== fileId)
+      if (remaining.length === 0) {
+        const n = { ...prev }; delete n[docId]; return n
+      }
+      return { ...prev, [docId]: { ...current, files: remaining } }
+    })
   }
 
   function handleNext() {

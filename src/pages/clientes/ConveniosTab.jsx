@@ -297,22 +297,46 @@ function ToggleGroup({ value, onChange, options }) {
 
 function FileUploadField({ value, onChange, error }) {
   const ref = useRef(null)
+  const files = value ? (Array.isArray(value) ? value : value.split(', ').filter(Boolean)) : []
   return (
     <div>
       <div
         onClick={() => ref.current?.click()}
         className={clsx(
           'flex items-center gap-3 px-3 py-2.5 rounded-lg border border-dashed cursor-pointer transition-colors',
-          error ? 'border-red-300 bg-red-50' : value ? 'border-green-300 bg-green-50' : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/30'
+          error ? 'border-red-300 bg-red-50' : files.length ? 'border-green-300 bg-green-50' : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/30'
         )}>
-        <Upload size={13} className={clsx('shrink-0', value ? 'text-green-500' : 'text-gray-400')} />
-        <span className={clsx('text-sm truncate flex-1', value ? 'text-gray-700' : 'text-gray-400')}>
-          {value || 'Seleccionar archivo PDF o imagen...'}
+        <Upload size={13} className={clsx('shrink-0', files.length ? 'text-green-500' : 'text-gray-400')} />
+        <span className={clsx('text-sm truncate flex-1', files.length ? 'text-gray-700' : 'text-gray-400')}>
+          {files.length ? `${files.length} archivo(s) seleccionado(s)` : 'Seleccionar archivo PDF o imagen...'}
         </span>
-        {value && <Check size={12} className="text-green-500 shrink-0" />}
+        {files.length > 0 && <Check size={12} className="text-green-500 shrink-0" />}
       </div>
-      <input ref={ref} type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden"
-        onChange={e => { if (e.target.files?.[0]) onChange(e.target.files[0].name) }} />
+      <input ref={ref} type="file" multiple accept=".pdf,.jpg,.jpeg,.png" className="hidden"
+        onChange={e => {
+          const selected = Array.from(e.target.files ?? [])
+          if (selected.length) {
+            const names = selected.map(f => f.name)
+            const prev = value ? (Array.isArray(value) ? value : value.split(', ').filter(Boolean)) : []
+            onChange([...prev, ...names].join(', '))
+          }
+        }} />
+      {files.length > 0 && (
+        <div className="mt-1.5 space-y-0.5">
+          {files.map((name, i) => (
+            <div key={i} className="flex items-center gap-1.5 text-[11px] text-gray-500">
+              <FileText size={10} className="shrink-0 text-gray-400" />
+              <span className="truncate flex-1">{name}</span>
+              <button type="button" onClick={() => {
+                const updated = files.filter((_, j) => j !== i)
+                onChange(updated.length ? updated.join(', ') : '')
+              }} className="text-gray-300 hover:text-red-400 transition-colors shrink-0">
+                <X size={11} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
       {error && <p className="text-[11px] text-red-500 mt-1">{error}</p>}
     </div>
   )

@@ -1,17 +1,15 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import {
   SlidersHorizontal, ShieldCheck, BookOpen, Cpu,
   Save, CheckCircle2, Clock,
 } from 'lucide-react'
 import clsx from 'clsx'
+import { fmtMoney } from '../../utils/format.js'
 
-/* ══════════════════════════════════════════════
-   INITIAL STATE
-══════════════════════════════════════════════ */
 const DEFAULT_PARAMS = {
   /* Límites Operacionales */
   montoLimiteGeneral:    5_000_000,
-  tcTolerancia:          2.5,
+  tcTolerancia:          250,
   limiteAcumuladoDiario: 10_000_000,
   stopLossUSD:           500_000,
   maxOpsConcurrentes:    50,
@@ -31,13 +29,6 @@ const DEFAULT_PARAMS = {
   /* Sistema */
   backupAutomatico:      true,
   logRetention:          90,
-}
-
-/* ══════════════════════════════════════════════
-   HELPERS
-══════════════════════════════════════════════ */
-function fmtMoney(n) {
-  return parseFloat(n).toLocaleString('es-PE', { minimumFractionDigits: 0 })
 }
 
 function Toggle({ checked, onChange }) {
@@ -75,9 +66,6 @@ function FieldParam({ label, hint, children, row = false }) {
 const inputCls = 'w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-900 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all bg-white'
 const selectCls = inputCls + ' appearance-none'
 
-/* ══════════════════════════════════════════════
-   SECTION CARD
-══════════════════════════════════════════════ */
 function Section({ icon: Icon, iconColor = 'text-gray-400', title, desc, children }) {
   return (
     <div className="bg-white rounded-lg overflow-hidden" style={{ border: '1px solid var(--color-border)' }}>
@@ -95,9 +83,6 @@ function Section({ icon: Icon, iconColor = 'text-gray-400', title, desc, childre
   )
 }
 
-/* ══════════════════════════════════════════════
-   PAGE
-══════════════════════════════════════════════ */
 export default function ParametrosPage() {
   const [params,   setParams]   = useState(DEFAULT_PARAMS)
   const [loading,  setLoading]  = useState(false)
@@ -121,10 +106,10 @@ export default function ParametrosPage() {
   }
 
   const stats = [
-    { label: 'Límite general (USD)',  value: `$ ${fmtMoney(params.montoLimiteGeneral)}`,   color: 'text-blue-600'   },
-    { label: 'Tolerancia TC',         value: `${params.tcTolerancia} %`,                    color: 'text-gray-900'   },
-    { label: 'Timeout de sesión',     value: `${params.sessionTimeout} min`,                 color: 'text-gray-900'   },
-    { label: 'Stop Loss (USD)',         value: `$ ${fmtMoney(params.stopLossUSD)}`,           color: 'text-red-600'    },
+    { label: 'Límite general (USD)',  value: `$ ${fmtMoney(params.montoLimiteGeneral, 0)}`,   color: 'text-blue-600'   },
+    { label: 'Tolerancia TC',         value: `${params.tcTolerancia} pbs`,                     color: 'text-gray-900'   },
+    { label: 'Timeout de sesión',     value: `${params.sessionTimeout} min`,                   color: 'text-gray-900'   },
+    { label: 'Stop Loss (USD)',       value: `$ ${fmtMoney(params.stopLossUSD, 0)}`,           color: 'text-red-600'    },
   ]
 
   return (
@@ -151,7 +136,7 @@ export default function ParametrosPage() {
         </div>
       )}
 
-      {/* ── Límites Operacionales ── */}
+      {/* —— Límites Operacionales —— */}
       <Section
         icon={SlidersHorizontal}
         iconColor="text-blue-500"
@@ -169,10 +154,10 @@ export default function ParametrosPage() {
           </FieldParam>
 
           <FieldParam
-            label="Tolerancia TC vs Pizarra (%)"
-            hint="Desviación máxima permitida entre el TC pactado y el TC de referencia."
+            label="Tolerancia TC vs Pizarra (pbs)"
+            hint="Desviación máxima permitida entre el TC pactado y el TC de referencia, expresada en puntos básicos (1 pbs = 1/10,000)."
           >
-            <input type="number" step="0.1" value={params.tcTolerancia}
+            <input type="number" step="1" min={0} max={99999} value={params.tcTolerancia}
               onChange={e => set('tcTolerancia', Number(e.target.value))}
               className={inputCls} />
           </FieldParam>
@@ -206,7 +191,7 @@ export default function ParametrosPage() {
         </div>
       </Section>
 
-      {/* ── Seguridad y Sesión ── */}
+      {/* —— Seguridad y Sesión —— */}
       <Section
         icon={ShieldCheck}
         iconColor="text-green-500"
@@ -256,7 +241,7 @@ export default function ParametrosPage() {
         </div>
       </Section>
 
-      {/* ── Regulatorio ── */}
+      {/* —— Regulatorio —— */}
       <Section
         icon={BookOpen}
         iconColor="text-amber-500"
@@ -303,7 +288,7 @@ export default function ParametrosPage() {
         </div>
       </Section>
 
-      {/* ── Sistema ── */}
+      {/* —— Sistema —— */}
       <Section
         icon={Cpu}
         iconColor="text-gray-400"
@@ -353,7 +338,7 @@ export default function ParametrosPage() {
         </div>
       </Section>
 
-      {/* ── Footer guardar ── */}
+      {/* —— Footer guardar —— */}
       <div className="bg-white rounded-lg overflow-hidden" style={{ border: '1px solid var(--color-border)' }}>
         <div className="flex items-center justify-between px-5 py-4">
           <div className="flex items-center gap-1.5 text-[11px] text-gray-400">

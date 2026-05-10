@@ -1,20 +1,11 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import {
   Lock, FileCheck, AlertCircle,
   Download, CheckCircle2, RotateCcw,
   Clock, ShieldCheck, User, History,
 } from 'lucide-react'
 import clsx from 'clsx'
-
-function fmtMoney(n, m = '') {
-  if (!n) return '—'
-  return `${m}${parseFloat(n).toLocaleString('es-PE', { minimumFractionDigits: 2 })}`
-}
-function fmtDate(iso) {
-  if (!iso) return '—'
-  const [y, m, d] = iso.split('-')
-  return `${d}/${m}/${y}`
-}
+import { fmtMoney, fmtDate } from '../../utils/format.js'
 
 export default function CierreDiarioPage({ ops = [], tcSbs = {}, cierres = [], onCerrar, onRevertir, role }) {
   const [view,              setView]              = useState('resumen')
@@ -28,14 +19,21 @@ export default function CierreDiarioPage({ ops = [], tcSbs = {}, cierres = [], o
 
   const hasTcSbs      = tcSbs?.t && tcSbs?.fecha === todayISO
   const opsLiquidadas = ops.filter(o => o.estado === 'liquidada' && o.fecha === todayISO)
-  const opsPendientes = ops.filter(o => ['reservada', 'en_revision', 'observada', 'subsanada'].includes(o.estado) && o.fecha === todayISO)
+  const opsPendientes = ops.filter(o => ['reservada', 'pendiente_abono', 'en_revision', 'observada', 'subsanada'].includes(o.estado) && o.fecha === todayISO)
   const isCierreDone  = cierres.some(c => c.fechaSoc === todayISO && c.estado === 'cerrado')
   const canClose      = hasTcSbs && opsLiquidadas.length > 0 && !isCierreDone && opsPendientes.length === 0
   const isJefe        = role === 'head' || role === 'jefe' || role === 'admin'
 
   const resumen = opsLiquidadas.reduce((acc, op) => {
-    if (op.tipo === 'compra') acc.usd.compra += op.montoUSD
-    else acc.usd.venta += op.montoUSD
+    if (op.tipo === 'cruzada') {
+      // Cruzada genera 2 registros BCRP simultáneos (compra + venta)
+      acc.usd.compra += op.montoUSD
+      acc.usd.venta  += op.montoUSD
+    } else if (op.tipo === 'compra') {
+      acc.usd.compra += op.montoUSD
+    } else {
+      acc.usd.venta += op.montoUSD
+    }
     return acc
   }, { usd: { compra: 0, venta: 0 } })
 
@@ -152,8 +150,8 @@ export default function CierreDiarioPage({ ops = [], tcSbs = {}, cierres = [], o
                 {[
                   { label: 'Operaciones a cerrar',    value: opsLiquidadas.length,                         mono: false, color: 'text-gray-900'    },
                   { label: 'Tipo de cambio SBS (T)',   value: tcSbs?.t?.toFixed(3) || 'No ingresado',       mono: true,  color: 'text-gray-800'    },
-                  { label: 'Consolidado compra USD',   value: fmtMoney(resumen.usd.compra, '$ '),           mono: true,  color: 'text-blue-600'    },
-                  { label: 'Consolidado venta USD',    value: fmtMoney(resumen.usd.venta,  '$ '),           mono: true,  color: 'text-orange-600'  },
+                  { label: 'Consolidado compra USD',   value: '$ ' + fmtMoney(resumen.usd.compra),           mono: true,  color: 'text-blue-600'    },
+                  { label: 'Consolidado venta USD',    value: '$ ' + fmtMoney(resumen.usd.venta),           mono: true,  color: 'text-orange-600'  },
                 ].map((item, i) => (
                   <div key={i} className={clsx('px-5 py-4', i % 2 === 0 && 'border-r')} style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-bg)' }}>
                     <p className="text-xs text-gray-400 mb-1">{item.label}</p>
@@ -426,3 +424,4 @@ function PrereqItem({ label, done, sub, warning }) {
     </div>
   )
 }
+

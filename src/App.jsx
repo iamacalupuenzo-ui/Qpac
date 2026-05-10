@@ -22,12 +22,8 @@ import ParametrosPage from './pages/admin/ParametrosPage'
 import Toast from './components/ui/Toast'
 import { CheckCircle2 } from 'lucide-react'
 import './index.css'
+import { fmtDate } from './utils/format.js'
 
-function fmtDate(iso) {
-  if (!iso) return '—'
-  const [y, m, d] = iso.split('-')
-  return `${d}/${m}/${y}`
-}
 
 function nextBusinessDay(isoDate) {
   const d = new Date(isoDate + 'T12:00:00')
@@ -36,7 +32,7 @@ function nextBusinessDay(isoDate) {
   return d.toISOString().split('T')[0]
 }
 
-/* ── Tabs / títulos admin ── */
+/* �� Tabs / títulos admin �� */
 const ADMIN_TABS = {
   dashboard:  [{ id: 'resumen', label: 'Resumen' }, { id: 'actividad', label: 'Actividad reciente' }, { id: 'sistema', label: 'Estado del sistema' }],
   usuarios:   [{ id: 'registrados', label: 'Usuarios registrados' }, { id: 'roles', label: 'Roles y permisos' }],
@@ -74,7 +70,7 @@ const ADMIN_TITLES = {
   auditoria:   'Auditoría',
 }
 
-/* ── Tabs / títulos operativos por página ── */
+/* �� Tabs / títulos operativos por página �� */
 const OPERATIVE_PAGE_TABS = {
   dashboard:   [],
   clientes:    [{ id: 'cartera', label: 'Cartera de clientes' }, { id: 'cuentas_bancarias', label: 'Cuentas bancarias' }, { id: 'convenios', label: 'Convenios y documentación' }, { id: 'arbol_trader', label: 'Árbol de Traders' }],
@@ -92,7 +88,7 @@ const OPERATIVE_PAGE_TABS = {
 }
 
 const OPERATIVE_PAGE_TITLES = {
-  dashboard:   { trader: 'Dashboard — Front Office', middle: 'Dashboard — Middle Office', back: 'Dashboard — Back Office', head: 'Dashboard — Head de Mesa', tesoreria: 'Dashboard — Tesorería', contab: 'Dashboard — Contabilidad' },
+  dashboard:   { trader: 'Dashboard � Front Office', middle: 'Dashboard � Middle Office', back: 'Dashboard � Back Office', head: 'Dashboard � Head de Mesa', tesoreria: 'Dashboard � Tesorería', contab: 'Dashboard � Contabilidad' },
   clientes:    { _: 'Gestión de Clientes' },
   operaciones: { _: 'Operaciones' },
   mercado:     { _: 'Mercado TC y Datatec' },
@@ -118,7 +114,7 @@ function getOperativeTitle(page, role) {
   return titles[role] ?? titles._ ?? 'Dashboard'
 }
 
-/* ── Placeholders ── */
+/* �� Placeholders �� */
 const card = 'bg-white rounded-lg p-5'
 const bord = { border: '1px solid var(--color-border)' }
 
@@ -168,9 +164,9 @@ function ComingSoon({ title }) {
   )
 }
 
-/* ════════════════════════════════════════════
+/* ��������������������������������������������
    APP ROOT
-════════════════════════════════════════════ */
+�������������������������������������������� */
 export default function App() {
   const [user,             setUser]            = useState(null)
   const [notification,     setNotification]    = useState(null)
@@ -212,7 +208,7 @@ export default function App() {
     return parseFecha(b.fecha) - parseFecha(a.fecha)
   }))
 
-  /* ── Ops State (lifted from OperacionesPage for cross-module sharing) ── */
+  /* �� Ops State (lifted from OperacionesPage for cross-module sharing) �� */
   const todayISO = new Date().toISOString().split('T')[0]
   const [ops, setOps] = useState([
     { id: 'OP-2026-001', clienteNombre: 'Empresa Industrial Inca S.A.C.',  tipo: 'compra', montoUSD: 50_000,  tc: 3.742, montoPEN: 187_100, estado: 'reservada',   fecha: todayISO, hora: '09:15', tcRef: 3.739, tcFuente: 'Datatec', trader: 'Andrés Valdivia C.', mesa: 'Mesa Alpha', solAnulacion: null, historial: [], fechaAnulacion: null, horaAnulacion: null, anuladoPor: null, causaAnulacion: null },
@@ -225,21 +221,21 @@ export default function App() {
     { id: 'OP-2026-008', clienteNombre: 'Textiles del Sur E.I.R.L.',        tipo: 'venta',  montoUSD: 12_000,  tc: 3.737, montoPEN: 44_844,  estado: 'observada',   fecha: todayISO, hora: '13:40', trader: 'Luis Fernández A.', mesa: 'Mesa Gamma', solAnulacion: null, historial: [], fechaAnulacion: null, horaAnulacion: null, anuladoPor: null, causaAnulacion: null, textoObservacion: 'La cuenta de ingreso no coincide con la declarada. Por favor corregir.', observadoPor: 'Back Office', fechaObservacion: todayISO + ' 14:00', cuentaQpaqIn: 'QP-PEN-2', cuentaQpaqOut: 'QP-USD-2', comprobantes: [{ name: 'voucher_008.jpg' }] },
   ])
 
-  /* ── TC SBS State (RF-22) ── */
+  /* �� TC SBS State (RF-22) �� */
   const [tcSbsHistory, setTcSbsHistory] = useState([
     { fecha: todayISO, t: 3.742, tMinus1: 3.738, usuario: 'Marco Quispe L.', timestamp: todayISO + 'T09:00:00Z' }
   ])
 
-  /* ── Ajustes Contables (RF-21) ── */
+  /* �� Ajustes Contables (RF-21) �� */
   const [ajustes, setAjustes] = useState([])
 
-  /* ── Cierres Diarios (RF-23, RF-24) ── */
+  /* �� Cierres Diarios (RF-23, RF-24) �� */
   const [cierres, setCierres] = useState([])
 
-  /* ── Exportaciones de Reportes (RF-25, 26, 27, 28) ── */
+  /* �� Exportaciones de Reportes (RF-25, 26, 27, 28) �� */
   const [reportExports, setReportExports] = useState([])
 
-  /* ── Mercado TC State ── */
+  /* �� Mercado TC State �� */
   const [marketData, setMarketData] = useState({
     datatec: { compra: 3.739, venta: 3.744 },
     pizarra: { compra: 3.738, venta: 3.745 },
@@ -280,7 +276,7 @@ export default function App() {
 
   const isAdmin = user.role === 'admin'
 
-  /* ── Navigation ── */
+  /* �� Navigation �� */
   function handleAdminNavigate(page) {
     if (inWizard) {
       setPendingNav({ type: 'page_admin', value: page })
@@ -370,7 +366,7 @@ export default function App() {
     setSelectedClient(null)
   }
 
-  /* ── UI Handlers ── */
+  /* �� UI Handlers �� */
   function notify(message, type = 'success') {
     setNotification({ message, type })
   }
@@ -397,7 +393,7 @@ export default function App() {
     }
   }
 
-  /* ── Treasury Handlers ── */
+  /* �� Treasury Handlers �� */
   function handleTcSbsUpdate(data) {
     setTcSbsHistory(prev => [data, ...prev])
     notify('Tipo de cambio SBS registrado exitosamente.')
@@ -444,7 +440,7 @@ export default function App() {
     notify(`Reporte ${data.tipo.toUpperCase()} exportado correctamente.`)
   }
 
-  /* ── Derived values ── */
+  /* �� Derived values �� */
   const isClientesPage = (isAdmin && adminPage === 'clientes') || (!isAdmin && operPage === 'clientes')
   const isDetailView   = isClientesPage && clientView === 'detail'
 
@@ -469,7 +465,7 @@ export default function App() {
   const onNavigate  = isAdmin ? handleAdminNavigate : handleOperNavigate
   const onTabChange = handleTabChange
 
-  /* ── Content ── */
+  /* �� Content �� */
   function renderClientes(moduleTab) {
     if (clientView === 'wizard')
       return <ClienteWizard
@@ -597,7 +593,7 @@ export default function App() {
         />
       )}
 
-      {/* ── Notificación Cierre de Día ── */}
+      {/* �� Notificación Cierre de Día �� */}
       {cierreNotification && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-blue-950/70 backdrop-blur-sm" />
@@ -608,7 +604,7 @@ export default function App() {
                 <CheckCircle2 className="text-white" size={28} />
               </div>
               <h2 className="text-lg font-bold text-white">Día operativo concluido</h2>
-              <p className="text-blue-100 text-sm mt-1">QAPAQ FX — Cierre diario completado</p>
+              <p className="text-blue-100 text-sm mt-1">QAPAQ FX � Cierre diario completado</p>
             </div>
 
             {/* Cuerpo */}
@@ -642,7 +638,7 @@ export default function App() {
         </div>
       )}
 
-      {/* ── Modal de Confirmación de Salida ── */}
+      {/* �� Modal de Confirmación de Salida �� */}
       {showExitModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowExitModal(false)} />
@@ -676,3 +672,4 @@ export default function App() {
     </AppLayout>
   )
 }
+

@@ -1,9 +1,10 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import {
   X, ArrowLeft, CheckCircle2, XCircle, AlertTriangle,
   Info, Lock, Clock, RotateCcw,
 } from 'lucide-react'
 import clsx from 'clsx'
+import { fmtMoney } from '../../utils/format.js'
 
 /* ══════════════════════════════════════════════
    Roles que pueden AUTORIZAR reaperturas
@@ -13,10 +14,6 @@ const ROLES_AUTORIZADOR = new Set(['head', 'jefe', 'admin'])
 /* ══════════════════════════════════════════════
    HELPERS
 ══════════════════════════════════════════════ */
-function fmtMoney(n) {
-  if (!n) return '—'
-  return parseFloat(n).toLocaleString('es-PE', { minimumFractionDigits: 2 })
-}
 
 /* ══════════════════════════════════════════════
    FORMULARIO — Solo Back Office (solicitar)
@@ -257,3 +254,5 @@ export default function ReaperturaDrawer({ op, modo, role, onSolicitar, onAproba
     </div>
   )
 }
+
+

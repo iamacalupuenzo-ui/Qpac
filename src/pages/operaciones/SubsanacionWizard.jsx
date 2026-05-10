@@ -1,10 +1,11 @@
-import { useState, useRef } from 'react'
+﻿import { useState, useRef } from 'react'
 import {
   ArrowLeft, Check, ChevronRight,
   AlertTriangle, Upload, FileText, Trash2,
   CheckCircle2, Clock, ShieldCheck, Eye, XCircle,
 } from 'lucide-react'
 import clsx from 'clsx'
+import { fmtMoney, fmtDateTime } from '../../utils/format.js'
 
 /* ══════════════════════════════════════════════
    MOCK — Cuentas QAPAQ (shared catalogue)
@@ -98,16 +99,7 @@ function ResumenCard({ title, accent, children }) {
   )
 }
 
-function fmtMoney(n, moneda = '') {
-  if (n === undefined || n === null) return '—'
-  return `${moneda} ${parseFloat(n).toLocaleString('es-PE', { minimumFractionDigits: 2 })}`
-}
 
-function fmtDateTime(iso) {
-  if (!iso) return '—'
-  const d = new Date(iso)
-  return d.toLocaleDateString('es-PE') + ' ' + d.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })
-}
 
 /* ══════════════════════════════════════════════
    STEP 1 — OBSERVACIÓN DE BACK OFFICE (solo lectura)
@@ -150,8 +142,8 @@ function Step1({ op }) {
         <ResumenRow label="Cliente"         value={op.clienteNombre} />
         <ResumenRow label="Tipo"            value={op.tipo?.toUpperCase()} />
         <ResumenRow label="TC pactado"      value={op.tc?.toFixed(3)} mono />
-        <ResumenRow label="Monto USD"       value={fmtMoney(op.montoUSD, '$')} />
-        <ResumenRow label="Monto PEN"       value={fmtMoney(op.montoPEN, 'S/')} />
+        <ResumenRow label="Monto USD"       value={'$ ' + fmtMoney(op.montoUSD)} />
+        <ResumenRow label="Monto PEN"       value={'S/ ' + fmtMoney(op.montoPEN)} />
       </ResumenCard>
 
       <div className="flex items-start gap-2.5 p-3 bg-amber-50 border border-amber-200 rounded-lg">
@@ -580,3 +572,4 @@ export default function SubsanacionWizard({ op, onBack, onSubsanar, onPreviewDoc
     </div>
   )
 }
+

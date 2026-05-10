@@ -5,6 +5,7 @@ import {
   ArrowLeftRight,
 } from 'lucide-react'
 import clsx from 'clsx'
+import { fmtMoney, parseMoney } from '../../utils/format.js'
 
 /* ═══════════════════════════════════════════════
    STEPS
@@ -26,6 +27,7 @@ const MOCK_CLIENTES = [
   { id: 'CLI-004', nombre: 'Consorcio Lima Norte S.A.C.',      ruc: '20456789012', tipo: 'juridica', traderNombre: 'Andrés Valdivia C.', mesa: 'Mesa Alpha' },
   { id: 'CLI-005', nombre: 'Importadora del Pacífico S.A.',    ruc: '20567890123', tipo: 'juridica', traderNombre: 'Rodrigo Paredes F.', mesa: 'Mesa Beta'  },
   { id: 'CLI-006', nombre: 'Carlos Herrera Quispe',            ruc: '10678901234', tipo: 'natural',  traderNombre: 'Andrés Valdivia C.', mesa: 'Mesa Alpha' },
+  { id: 'CLI-007', nombre: 'Farmacéutica Andina S.A.',        ruc: '20789012345', tipo: 'juridica', traderNombre: 'Rodrigo Paredes F.', mesa: 'Mesa Alpha' },
 ]
 
 const CUENTAS_CLIENTE = {
@@ -57,6 +59,10 @@ const CUENTAS_CLIENTE = {
     { id: 'CTA-060', banco: 'BCP',       moneda: 'PEN', numero: '191-6000001-0-22',          tipo: 'propia',  convenio: true  },
     { id: 'CTA-061', banco: 'Interbank', moneda: 'USD', numero: '200-6000012-001',            tipo: 'propia',  convenio: true  },
   ],
+  'CLI-007': [
+    { id: 'CTA-070', banco: 'BCP',       moneda: 'USD', numero: '191-7000001-0-33',          tipo: 'propia',  convenio: true  },
+    { id: 'CTA-071', banco: 'BBVA',      moneda: 'PEN', numero: '0011-0777-77-0100077001',   tipo: 'propia',  convenio: true  },
+  ],
 }
 
 const CUENTAS_QAPAQ = {
@@ -82,11 +88,6 @@ const TC_SBS     = { compra: 3.735, venta: 3.740 }
 /* ═══════════════════════════════════════════════
    HELPERS
 ═══════════════════════════════════════════════ */
-function fmtMoney(n) {
-  if (!n && n !== 0) return ''
-  return parseFloat(n).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
-
 let _seq = 9
 function nextCorrelativo() { _seq++; return `OP-2026-${String(_seq).padStart(3, '0')}` }
 
@@ -358,7 +359,7 @@ function Step2({ formData, onChange, errors, marketData, ops }) {
 
   const tcPuntaNum   = parseFloat(tcPunta)
   const tcPactadoNum = parseFloat(tcPactado)
-  const montoNum     = parseFloat(monto)
+  const montoNum     = parseMoney(monto)
 
   // Spread: compra = punta−pactado; venta = pactado−punta; cruzada = |pactado−punta| siempre positivo
   const spread = !isNaN(tcPuntaNum) && tcPuntaNum > 0 && !isNaN(tcPactadoNum) && tcPactadoNum > 0
@@ -504,9 +505,11 @@ function Step2({ formData, onChange, errors, marketData, ops }) {
             <Field label={isCruzada ? `Monto a ingresar (flujo entrada)` : 'Monto'} required error={errors?.monto}>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400">{montoLabel}</span>
-                <input type="number" min="0" step="0.01" placeholder="0.00"
+                <input type="text" inputMode="numeric" placeholder="0.00"
                   value={monto}
-                  onChange={e => onChange('monto', e.target.value)}
+                  onChange={e => onChange('monto', e.target.value.replace(/[^0-9.,]/g, ''))}
+                  onBlur={() => { const n = parseMoney(monto); if (!isNaN(n) && n > 0) onChange('monto', fmtMoney(n)) }}
+                  onFocus={() => onChange('monto', monto.replace(/,/g, ''))}
                   className={clsx('w-full pl-12 pr-3 py-2.5 rounded-lg border text-sm text-right outline-none transition-all',
                     errors?.monto ? 'border-red-400 ring-2 ring-red-50'
                     : 'border-gray-200 hover:border-gray-300 focus:border-blue-400 focus:ring-2 focus:ring-blue-50')} />
@@ -680,7 +683,7 @@ function Step3({ formData, onChange, errors }) {
   const qpaqInOpts  = (CUENTAS_QAPAQ[monedaIn]  ?? []).map(c => ({ value: c.id, label: `${c.banco} · ${c.numero} (${c.moneda})` }))
 
   // Monto total que el cliente recibirá (en monedaDest)
-  const inputVal  = parseFloat(formData.monto)    || 0
+  const inputVal  = parseMoney(formData.monto)     || 0
   const tcPact    = parseFloat(formData.tcPactado) || 0
   const tcRef     = parseFloat(formData.tcPunta)   || 0
   const montoTotal = isCruzada
@@ -703,7 +706,7 @@ function Step3({ formData, onChange, errors }) {
   useEffect(() => {
     if (montoTotal !== null && (formData.cuentasDest ?? [{ cuentaId: '', monto: '' }])[0]?.monto === '') {
       const updated = (formData.cuentasDest ?? [{ cuentaId: '', monto: '' }]).map((row, i) =>
-        i === 0 ? { ...row, monto: montoTotal.toFixed(2) } : row
+        i === 0 ? { ...row, monto: fmtMoney(montoTotal) } : row
       )
       onChange('cuentasDest', updated)
     }
@@ -736,9 +739,40 @@ function Step3({ formData, onChange, errors }) {
   }
 
   const convAlert  = formData.convAlert
-  const sumaMontos = cuentasDest.reduce((acc, row) => acc + (parseFloat(row.monto) || 0), 0)
+  const sumaMontos = cuentasDest.reduce((acc, row) => acc + (parseMoney(row.monto) || 0), 0)
   const diferencia = montoTotal !== null ? montoTotal - sumaMontos : null
   const showDif    = diferencia !== null && Math.abs(diferencia) > 0.005
+
+  // QAPAQ cuentas con montos
+  const qpaqEgreso  = formData.cuentasQpaqEgreso  ?? [{ cuentaId: '', monto: '' }]
+  const qpaqIngreso = formData.cuentasQpaqIngreso ?? [{ cuentaId: '', monto: '' }]
+
+  const montoEgresoEsperado  = inputVal > 0 ? inputVal : null
+  const montoIngresoEsperado = montoTotal
+
+  const sumaEgreso  = qpaqEgreso.reduce((acc, r) => acc + (parseMoney(r.monto) || 0), 0)
+  const sumaIngreso = qpaqIngreso.reduce((acc, r) => acc + (parseMoney(r.monto) || 0), 0)
+  const egresoDif   = montoEgresoEsperado !== null ? montoEgresoEsperado - sumaEgreso : null
+  const ingresoDif  = montoIngresoEsperado !== null ? montoIngresoEsperado - sumaIngreso : null
+
+  // Pre-rellenar primer monto QAPAQ egreso/ingreso
+  useEffect(() => {
+    if (montoEgresoEsperado !== null && qpaqEgreso[0]?.monto === '') {
+      onChange('cuentasQpaqEgreso', qpaqEgreso.map((r, i) => i === 0 ? { ...r, monto: fmtMoney(montoEgresoEsperado) } : r))
+    }
+  }, [montoEgresoEsperado, inputVal]) // eslint-disable-line
+  useEffect(() => {
+    if (montoIngresoEsperado !== null && qpaqIngreso[0]?.monto === '') {
+      onChange('cuentasQpaqIngreso', qpaqIngreso.map((r, i) => i === 0 ? { ...r, monto: fmtMoney(montoIngresoEsperado) } : r))
+    }
+  }, [montoIngresoEsperado, montoTotal]) // eslint-disable-line
+
+  function handleQpaqEgresoBlur(idx, val) {
+    onChange('cuentasQpaqEgreso', qpaqEgreso.map((r, i) => i === idx ? { ...r, monto: val } : r))
+  }
+  function handleQpaqIngresoBlur(idx, val) {
+    onChange('cuentasQpaqIngreso', qpaqIngreso.map((r, i) => i === idx ? { ...r, monto: val } : r))
+  }
 
   return (
     <div className="space-y-5">
@@ -761,7 +795,7 @@ function Step3({ formData, onChange, errors }) {
           {cuentasDest.map((row, idx) => {
             const ctaDest  = cuentasCli.find(c => c.id === row.cuentaId)
             const rowAlert = ctaDest?.tipo === 'tercero' && !ctaDest?.convenio
-            const montoNum = parseFloat(row.monto)
+            const montoNum = parseMoney(row.monto)
             return (
               <div key={idx} className={clsx('rounded-xl border p-4 space-y-3',
                 rowAlert ? 'border-red-200 bg-red-50' : 'border-gray-200 bg-white')}>
@@ -789,14 +823,13 @@ function Step3({ formData, onChange, errors }) {
                     hint={idx === 0 && montoTotal ? `Total operación: ${monedaDest} ${fmtMoney(montoTotal)}` : undefined}>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400">{monedaDest}</span>
-                      <input type="number" min="0" step="0.01" placeholder="0.00"
+                      <input type="text" inputMode="numeric" placeholder="0.00"
                         value={row.monto}
-                        onChange={e => handleMontoChange(idx, e.target.value)}
+                        onChange={e => handleMontoChange(idx, e.target.value.replace(/[^0-9.,]/g, ''))}
+                        onBlur={() => { const n = parseMoney(row.monto); if (!isNaN(n) && n > 0) handleMontoChange(idx, fmtMoney(n)) }}
+                        onFocus={() => handleMontoChange(idx, row.monto.replace(/,/g, ''))}
                         className="w-full pl-12 pr-3 py-2.5 rounded-lg border border-gray-200 text-sm text-right outline-none transition-all hover:border-gray-300 focus:border-blue-400 focus:ring-2 focus:ring-blue-50" />
                     </div>
-                    {row.monto && !isNaN(montoNum) && montoNum > 0 && (
-                      <p className="text-[10px] text-gray-400 text-right mt-1">{fmtMoney(montoNum)}</p>
-                    )}
                   </Field>
                 </div>
 
@@ -823,7 +856,7 @@ function Step3({ formData, onChange, errors }) {
         )}
       </div>
 
-      {/* QAPAQ Egreso e Ingreso — secciones con múltiples cuentas */}
+      {/* QAPAQ Egreso e Ingreso — secciones con múltiples cuentas y montos */}
       <div className="space-y-4">
         {/* Egreso */}
         <div>
@@ -833,31 +866,60 @@ function Step3({ formData, onChange, errors }) {
               {monedaOut && <span className="ml-1 font-normal normal-case text-gray-300">({monedaOut})</span>}
             </p>
             <button type="button" disabled={!tipoOp}
-              onClick={() => onChange('cuentasQpaqEgreso', [...(formData.cuentasQpaqEgreso ?? ['']), ''])}
+              onClick={() => onChange('cuentasQpaqEgreso', [...qpaqEgreso, { cuentaId: '', monto: '' }])}
               className={clsx('flex items-center gap-1 text-xs font-medium transition-colors',
                 tipoOp ? 'text-blue-600 hover:text-blue-800' : 'text-gray-300 cursor-not-allowed')}>
               <Plus size={12} /> Agregar
             </button>
           </div>
           <div className="space-y-2">
-            {(formData.cuentasQpaqEgreso ?? ['']).map((cId, idx) => (
-              <div key={idx} className="flex items-center gap-2">
-                <div className="flex-1">
-                  <AppSelect value={cId} onChange={v => {
-                    const updated = (formData.cuentasQpaqEgreso ?? ['']).map((x, i) => i === idx ? v : x)
-                    onChange('cuentasQpaqEgreso', updated)
-                  }} placeholder="Seleccionar…" disabled={!tipoOp} options={qpaqOutOpts} />
+            {qpaqEgreso.map((row, idx) => (
+              <div key={idx} className="rounded-lg border border-gray-200 bg-white p-3 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">
+                    {idx === 0 ? 'Cuenta egreso principal' : `Cuenta egreso adicional ${idx}`}
+                  </p>
+                  {qpaqEgreso.length > 1 && (
+                    <button type="button"
+                      onClick={() => onChange('cuentasQpaqEgreso', qpaqEgreso.filter((_, i) => i !== idx))}
+                      className="text-gray-400 hover:text-red-500 transition-colors">
+                      <X size={14} />
+                    </button>
+                  )}
                 </div>
-                {(formData.cuentasQpaqEgreso ?? ['']).length > 1 && (
-                  <button type="button"
-                    onClick={() => onChange('cuentasQpaqEgreso', (formData.cuentasQpaqEgreso ?? ['']).filter((_, i) => i !== idx))}
-                    className="text-gray-400 hover:text-red-500 transition-colors shrink-0">
-                    <X size={14} />
-                  </button>
-                )}
+                <div className="grid grid-cols-2 gap-3">
+                  <AppSelect value={row.cuentaId} onChange={v => {
+                    const updated = qpaqEgreso.map((x, i) => i === idx ? { ...x, cuentaId: v } : x)
+                    onChange('cuentasQpaqEgreso', updated)
+                  }} placeholder="Seleccionar cuenta…" disabled={!tipoOp} options={qpaqOutOpts} />
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400">{monedaOut}</span>
+                    <input type="text" inputMode="numeric" placeholder="0.00"
+                      value={row.monto}
+                      onChange={e => {
+                        const updated = qpaqEgreso.map((x, i) => i === idx ? { ...x, monto: e.target.value.replace(/[^0-9.,]/g, '') } : x)
+                        onChange('cuentasQpaqEgreso', updated)
+                      }}
+                      onBlur={() => { const n = parseMoney(row.monto); if (!isNaN(n) && n > 0) handleQpaqEgresoBlur(idx, fmtMoney(n)) }}
+                      onFocus={() => {
+                        const updated = qpaqEgreso.map((x, i) => i === idx ? { ...x, monto: x.monto.replace(/,/g, '') } : x)
+                        onChange('cuentasQpaqEgreso', updated)
+                      }}
+                      className="w-full pl-12 pr-3 py-2 rounded-lg border border-gray-200 text-sm text-right outline-none transition-all hover:border-gray-300 focus:border-blue-400 focus:ring-2 focus:ring-blue-50" />
+                  </div>
+                </div>
               </div>
             ))}
           </div>
+          {egresoDif !== null && Math.abs(egresoDif) > 0.005 && (
+            <div className="flex items-start gap-2 p-2.5 bg-amber-50 border border-amber-200 rounded-lg mt-2">
+              <AlertTriangle size={12} className="text-amber-500 mt-0.5 shrink-0" />
+              <p className="text-[11px] text-amber-800">
+                La suma de egresos ({monedaOut} {fmtMoney(sumaEgreso)}) difiere del total esperado ({monedaOut} {fmtMoney(montoEgresoEsperado)}).
+                Diferencia: {fmtMoney(Math.abs(egresoDif))}.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Ingreso */}
@@ -868,31 +930,60 @@ function Step3({ formData, onChange, errors }) {
               {monedaIn && <span className="ml-1 font-normal normal-case text-gray-300">({monedaIn})</span>}
             </p>
             <button type="button" disabled={!tipoOp}
-              onClick={() => onChange('cuentasQpaqIngreso', [...(formData.cuentasQpaqIngreso ?? ['']), ''])}
+              onClick={() => onChange('cuentasQpaqIngreso', [...qpaqIngreso, { cuentaId: '', monto: '' }])}
               className={clsx('flex items-center gap-1 text-xs font-medium transition-colors',
                 tipoOp ? 'text-blue-600 hover:text-blue-800' : 'text-gray-300 cursor-not-allowed')}>
               <Plus size={12} /> Agregar
             </button>
           </div>
           <div className="space-y-2">
-            {(formData.cuentasQpaqIngreso ?? ['']).map((cId, idx) => (
-              <div key={idx} className="flex items-center gap-2">
-                <div className="flex-1">
-                  <AppSelect value={cId} onChange={v => {
-                    const updated = (formData.cuentasQpaqIngreso ?? ['']).map((x, i) => i === idx ? v : x)
-                    onChange('cuentasQpaqIngreso', updated)
-                  }} placeholder="Seleccionar…" disabled={!tipoOp} options={qpaqInOpts} />
+            {qpaqIngreso.map((row, idx) => (
+              <div key={idx} className="rounded-lg border border-gray-200 bg-white p-3 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">
+                    {idx === 0 ? 'Cuenta ingreso principal' : `Cuenta ingreso adicional ${idx}`}
+                  </p>
+                  {qpaqIngreso.length > 1 && (
+                    <button type="button"
+                      onClick={() => onChange('cuentasQpaqIngreso', qpaqIngreso.filter((_, i) => i !== idx))}
+                      className="text-gray-400 hover:text-red-500 transition-colors">
+                      <X size={14} />
+                    </button>
+                  )}
                 </div>
-                {(formData.cuentasQpaqIngreso ?? ['']).length > 1 && (
-                  <button type="button"
-                    onClick={() => onChange('cuentasQpaqIngreso', (formData.cuentasQpaqIngreso ?? ['']).filter((_, i) => i !== idx))}
-                    className="text-gray-400 hover:text-red-500 transition-colors shrink-0">
-                    <X size={14} />
-                  </button>
-                )}
+                <div className="grid grid-cols-2 gap-3">
+                  <AppSelect value={row.cuentaId} onChange={v => {
+                    const updated = qpaqIngreso.map((x, i) => i === idx ? { ...x, cuentaId: v } : x)
+                    onChange('cuentasQpaqIngreso', updated)
+                  }} placeholder="Seleccionar cuenta…" disabled={!tipoOp} options={qpaqInOpts} />
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400">{monedaIn}</span>
+                    <input type="text" inputMode="numeric" placeholder="0.00"
+                      value={row.monto}
+                      onChange={e => {
+                        const updated = qpaqIngreso.map((x, i) => i === idx ? { ...x, monto: e.target.value.replace(/[^0-9.,]/g, '') } : x)
+                        onChange('cuentasQpaqIngreso', updated)
+                      }}
+                      onBlur={() => { const n = parseMoney(row.monto); if (!isNaN(n) && n > 0) handleQpaqIngresoBlur(idx, fmtMoney(n)) }}
+                      onFocus={() => {
+                        const updated = qpaqIngreso.map((x, i) => i === idx ? { ...x, monto: x.monto.replace(/,/g, '') } : x)
+                        onChange('cuentasQpaqIngreso', updated)
+                      }}
+                      className="w-full pl-12 pr-3 py-2 rounded-lg border border-gray-200 text-sm text-right outline-none transition-all hover:border-gray-300 focus:border-blue-400 focus:ring-2 focus:ring-blue-50" />
+                  </div>
+                </div>
               </div>
             ))}
           </div>
+          {ingresoDif !== null && Math.abs(ingresoDif) > 0.005 && (
+            <div className="flex items-start gap-2 p-2.5 bg-amber-50 border border-amber-200 rounded-lg mt-2">
+              <AlertTriangle size={12} className="text-amber-500 mt-0.5 shrink-0" />
+              <p className="text-[11px] text-amber-800">
+                La suma de ingresos ({monedaIn} {fmtMoney(sumaIngreso)}) difiere del total esperado ({monedaIn} {fmtMoney(montoIngresoEsperado)}).
+                Diferencia: {fmtMoney(Math.abs(ingresoDif))}.
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1059,6 +1150,48 @@ function Step4({ formData, onConfirmar, confirmed, correlativo, onBack }) {
           </div>
         )}
 
+        {/* QAPAQ cuentas en resumen */}
+        {(() => {
+          const eq = formData.cuentasQpaqEgreso ?? []
+          const iq = formData.cuentasQpaqIngreso ?? []
+          const hasEgreso = eq.some(r => r.cuentaId || r.monto)
+          const hasIngreso = iq.some(r => r.cuentaId || r.monto)
+          if (!hasEgreso && !hasIngreso) return null
+          const monedaOut = isCruzada ? monedaCruz : tipoOp === 'compra' ? 'USD' : 'PEN'
+          const monedaIn = isCruzada ? monedaCruz : tipoOp === 'compra' ? 'PEN' : 'USD'
+          return (
+            <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+              <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-200">
+                <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Cuentas QAPAQ</p>
+              </div>
+              <div className="divide-y divide-gray-100">
+                {hasEgreso && (
+                  <div className="px-4 py-2.5 bg-gray-50/50">
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Egreso ({monedaOut})</p>
+                    {eq.map((row, idx) => (
+                      <div key={idx} className="flex items-center justify-between gap-4 py-1.5">
+                        <p className="text-xs text-gray-500">{row.cuentaId || '—'}</p>
+                        <p className="text-sm font-mono text-gray-700">{row.monto ? `${monedaOut} ${fmtMoney(+row.monto)}` : '—'}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {hasIngreso && (
+                  <div className="px-4 py-2.5">
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Ingreso ({monedaIn})</p>
+                    {iq.map((row, idx) => (
+                      <div key={idx} className="flex items-center justify-between gap-4 py-1.5">
+                        <p className="text-xs text-gray-500">{row.cuentaId || '—'}</p>
+                        <p className="text-sm font-mono text-gray-700">{row.monto ? `${monedaIn} ${fmtMoney(+row.monto)}` : '—'}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        })()}
+
         {spreadAlert && (
           <div className="flex items-start gap-2.5 p-3 bg-amber-50 border border-amber-200 rounded-lg">
             <AlertTriangle size={14} className="text-amber-500 mt-0.5 shrink-0" />
@@ -1095,7 +1228,7 @@ function validateStep(step, formData) {
   }
   if (step === 2) {
     if (!formData.tipoOp) e.tipoOp = 'Selecciona el tipo de operación.'
-    const m = parseFloat(formData.monto)
+    const m = parseMoney(formData.monto)
     const t = parseFloat(formData.tcPactado)
     if (!formData.monto || isNaN(m) || m <= 0) e.monto = formData.tipoOp === 'compra' ? 'Ingresa el monto en USD.' : 'Ingresa el monto en PEN.'
     if (!formData.tcPactado || isNaN(t) || t <= 0) e.tcPactado = 'Ingresa el TC pactado con el cliente.'
@@ -1121,8 +1254,8 @@ const INITIAL_FORM = {
   tcPunta:       '',
   tcPactado:     '',
   cuentasDest:       [{ cuentaId: '', monto: '' }],
-  cuentasQpaqEgreso: [''],
-  cuentasQpaqIngreso:[''],
+  cuentasQpaqEgreso: [{ cuentaId: '', monto: '' }],
+  cuentasQpaqIngreso:[{ cuentaId: '', monto: '' }],
   convAlert:         false,
 }
 
@@ -1161,7 +1294,7 @@ export default function CotizacionWizard({ onBack, onCreada, marketData, ops }) 
     const isCruzada  = formData.tipoOp === 'cruzada'
     const tc         = parseFloat(formData.tcPactado)
     const tcRef      = parseFloat(formData.tcPunta) || undefined
-    const inputVal   = parseFloat(formData.monto)
+    const inputVal   = parseMoney(formData.monto)
     const montoUSD   = isCruzada || formData.tipoOp === 'compra'
       ? inputVal
       : Math.round(inputVal / tc * 100) / 100
@@ -1189,6 +1322,9 @@ export default function CotizacionWizard({ onBack, onCreada, marketData, ops }) 
       hora,
       trader:   cliente.traderNombre,
       mesa:     cliente.mesa,
+      cuentasDest:       formData.cuentasDest       ?? [],
+      cuentasQpaqEgreso: formData.cuentasQpaqEgreso ?? [],
+      cuentasQpaqIngreso:formData.cuentasQpaqIngreso ?? [],
       backOffice: null,
       solAnulacion: null,
       historial: [],

@@ -1,25 +1,34 @@
 # Definición de Producto — QPaC / QAPAQ FX
 
 > Decisiones de UX, roles, flujos de negocio y reglas de producto.
-> Actualizado: 2026-05-07
+> Actualizado: 2026-05-07 — v2 (operaciones cruzadas + estándar de formateo numérico)
 
 ---
 
 ## 1. Perfiles de Usuario (Roles)
 
-La app tiene **5 roles** que determinan qué módulos y acciones están disponibles:
+La app tiene **14 roles** que determinan qué módulos y acciones están disponibles. Ver `usuarios.md` para detalle completo de permisos por módulo y credenciales.
 
-| Rol | ID | Módulos | Descripción |
-|-----|----|---------|-------------|
-| **Administrador** | `admin` | Dashboard admin, Usuarios, Roles, Mesas, Catálogos, Parámetros | Gestión del sistema |
-| **Trader** | `trader` | Operaciones (cotizar, bandeja), Clientes | Front Office — captura de operaciones |
-| **Mesa de Dinero** | `middle` | Operaciones (bandeja), Tesorería (posiciones, mercado TC) | Middle Office — monitoreo |
-| **Back Office** | `back` | Operaciones (revisión BO, liquidación), Reportes | Verificación y liquidación |
-| **Tesorería** | `tesoreria` | Tesorería (todo), Reportes regulatorios | Gestión de posiciones y cierre |
+| Rol | ID | Descripción |
+|-----|----|-------------|
+| **Administrador** | `admin` | Acceso total — configuración del sistema |
+| **Trader** | `trader` | Front Office · Cotización y registro FX |
+| **Middle Office** | `middle` | Gestión de clientes y cartera (M0) |
+| **Back Office** | `back` | Validación y liquidación de operaciones |
+| **Head de Mesa** | `head` | Supervisión Mesa · M0 excepciones, M1, M3 |
+| **Jefe de Op. Centrales** | `jefe_op` | M2, M3, M4 · Cierre diario |
+| **Tesorería y Posición** | `tesoreria` | Posición FX · Cierre y reportes |
+| **Contabilidad** | `contab` | Posición FX · Trama contable |
+| **Jefe de Tesorería** | `head_tes` | Acceso amplio M0–M6 |
+| **Gerente de Finanzas** | `gerente` | Dashboards gerenciales y reportes (R) |
+| **Riesgos** | `riesgos` | M3 y reportes regulatorios |
+| **Oficial Cumplimiento PLAFT** | `plaft` | M0 PLAFT y reportes operativos |
+| **Reporte Regulatorio** | `reportes` | M5 y reportes operativos |
+| **Seguridad de la Información** | `seguridad` | Solo lectura · Logs y auditoría |
 
 ### Selección de rol
 - Los roles se seleccionan en la pantalla de login (mock).
-- Cada rol tiene credenciales predefinidas (ver `contexto.md` sección 6).
+- Cada rol tiene credenciales predefinidas (ver `usuarios.md`).
 - No hay cambio de rol en sesión — el rol se fija al hacer login.
 
 ---
@@ -53,14 +62,29 @@ Liquidado → Reapertura (solo tesorería)
 - Validación: cliente debe estar en estado `activo`
 
 **Paso 2 — Operación:**
-- Tipo: Compra / Venta
-- Moneda: USD (fijo)
-- Monto USD (input numérico)
-- TC Pactado (input decimal)
-- Cálculo automático: `Monto PEN = Monto USD × TC`
-- Spread: `(TCPunta - TCPactado) × 10000`
+- Tipo: **Compra** / **Venta** / **Cruzada** (soles o dólares)
+- Monto en la moneda correspondiente al tipo
+- TC Punta (referencia, auto-rellenado desde Datatec) y TC Pactado (con el cliente)
+- Fuente TC: Datatec automático o Manual
 - Detección de duplicados (mismo cliente, mismo monto, TC similar)
-- Tasas y comisiones opcionales
+
+_Compra_ (cliente entrega USD, recibe PEN):
+- Contravalor PEN = `Monto USD × TC Pactado`
+- Spread = `TC Punta − TC Pactado`
+
+_Venta_ (cliente entrega PEN, recibe USD):
+- Contravalor USD = `Monto PEN / TC Pactado`
+- Spread = `TC Pactado − TC Punta`
+
+_Cruzada_ (cliente entrega fondos en un banco y recibe la **misma moneda** en otro banco):
+- Subtipos: **Cruzada soles** (PEN→USD→PEN entre bancos) y **Cruzada dólares** (USD→PEN→USD entre bancos)
+- Contravalor = `Monto × min(TC Pactado, TC Punta) / max(TC Pactado, TC Punta)`
+- Fee QAPAQ = `Monto − Contravalor`
+- Spread = `|TC Pactado − TC Punta|` (siempre positivo)
+- Orden correcto de TCs: cruzada soles → `TC Pactado > TC Punta`; cruzada dólares → `TC Pactado < TC Punta`
+- Auto-fill Datatec: cruzada soles usa TC **compra**; cruzada dólares usa TC **venta**
+- Genera **2 registros BCRP** (compra + venta simultáneos) y 2 comprobantes al cliente
+- Para la posición: no genera montoUSD neto; `montoPEN = null`
 
 **Paso 3 — Cuentas:**
 - Selección de cuenta del cliente (desde sus cuentas bancarias registradas)
@@ -360,9 +384,19 @@ Dashboards con KPIs adaptados al rol:
 
 ### 9.1 Cálculos de Operación
 
-- **Monto PEN** = `Monto USD × TC Pactado`
-- **Spread** = `(TC Punta − TC Pactado) × 10000` (en puntos básicos)
-- **TC Punta** = TC de compra o venta según el tipo de operación (desde la pizarra)
+**Compra** (cliente entrega USD):
+- Contravalor PEN = `Monto USD × TC Pactado`
+- Spread = `TC Punta − TC Pactado`
+
+**Venta** (cliente entrega PEN):
+- Contravalor USD = `Monto PEN / TC Pactado`
+- Spread = `TC Pactado − TC Punta`
+
+**Cruzada** (misma moneda, diferente banco):
+- Contravalor = `Monto × min(TC Pactado, TC Punta) / max(TC Pactado, TC Punta)`
+- Fee QAPAQ = `Monto − Contravalor`
+- Spread = `|TC Pactado − TC Punta|`
+- TC Punta = fuente Datatec (compra si es cruzada soles, venta si es cruzada dólares)
 
 ### 9.2 Validaciones de Operación
 
@@ -416,6 +450,47 @@ Dashboards con KPIs adaptados al rol:
 - Filtros por estado, fecha, cliente, trader
 - Columnas configurables según el contexto
 - Paginación donde aplica
+
+---
+
+## 11. Estándar de Formateo Numérico
+
+### 11.1 Reglas generales
+
+- **Montos** (PEN, USD, EUR, etc.): siempre con separador de miles y 2 decimales fijos.
+  - Ejemplo: `500,000.00`, `1,234.56`, `99.00`
+  - Locale: `es-PE` → miles con `,`, decimal con `.`
+- **Tipos de cambio (TC)**: 4 decimales fijos, sin separador de miles.
+  - Ejemplo: `3.5220`, `3.7400`
+- **Spreads**: 4 decimales, sin separador de miles.
+  - Ejemplo: `0.0020`
+
+### 11.2 Utilidades centralizadas (`src/utils/format.js`)
+
+| Función | Uso |
+|---------|-----|
+| `fmtMoney(n)` | Formatea un número como monto: `500000` → `"500,000.00"` |
+| `parseMoney(s)` | Parsea un string de monto (con o sin comas): `"500,000.00"` → `500000` |
+
+**Regla:** Todos los `parseFloat` sobre campos de monto deben usar `parseMoney()`. Los `parseFloat` sobre TC son directos (no tienen separador de miles).
+
+### 11.3 Comportamiento de inputs de monto
+
+Los inputs de monto usan `type="text"` con `inputMode="numeric"`:
+- **onChange**: acepta solo caracteres numéricos, `.` y `,`
+- **onBlur**: formatea con `fmtMoney` (agrega separador de miles)
+- **onFocus**: quita el formateo (elimina comas) para permitir edición limpia
+
+Los inputs de TC usan `type="text"` con `inputMode="decimal"`:
+- **onChange**: reemplaza `,` → `.` para aceptar coma como separador decimal (estándar peruano)
+
+### 11.4 Archivos actualizados con el estándar
+
+| Archivo | Cambio |
+|---------|--------|
+| `src/utils/format.js` | Nuevo — definición centralizada |
+| `src/pages/operaciones/CotizacionWizard.jsx` | Usa `fmtMoney`/`parseMoney`; monto inputs con format-on-blur |
+| `src/pages/operaciones/ConfirmarAbonoWizard.jsx` | Ídem; TC input acepta coma |
 
 ---
 

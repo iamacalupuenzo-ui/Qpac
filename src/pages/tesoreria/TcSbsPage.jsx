@@ -1,15 +1,11 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import {
   Info, AlertTriangle, CheckCircle2, History,
   ArrowRight, Save, ShieldCheck, Clock, User,
 } from 'lucide-react'
 import clsx from 'clsx'
+import { fmtDate } from '../../utils/format.js'
 
-function fmtDate(iso) {
-  if (!iso) return '—'
-  const [y, m, d] = iso.split('-')
-  return `${d}/${m}/${y}`
-}
 
 export default function TcSbsPage({ history = [], onUpdate, role, notify }) {
   const latest      = history[0] || {}
@@ -267,3 +263,4 @@ export default function TcSbsPage({ history = [], onUpdate, role, notify }) {
     </div>
   )
 }
+

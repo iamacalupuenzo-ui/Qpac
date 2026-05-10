@@ -5,10 +5,8 @@ import {
   CheckCircle2, Clock, ShieldCheck, Eye, Plus, X, AlertCircle,
 } from 'lucide-react'
 import clsx from 'clsx'
+import { fmtMoney, parseMoney } from '../../utils/format.js'
 
-/* ══════════════════════════════════════════════
-   MOCK — Cuentas QAPAQ
-══════════════════════════════════════════════ */
 const CUENTAS_QAPAQ = {
   USD: [
     { id: 'QP-USD-1', banco: 'BCP',       numero: '191-9000001-0-01', moneda: 'USD' },
@@ -20,38 +18,70 @@ const CUENTAS_QAPAQ = {
   ],
 }
 
-/* Cuentas bancarias por cliente (mismo catálogo que CotizacionWizard) */
 const CUENTAS_CLIENTE = {
   'CLI-001': [
     { id: 'CTA-001', banco: 'BCP',       moneda: 'USD', numero: '191-1234567-0-12',          tipo: 'propia',  convenio: true  },
     { id: 'CTA-002', banco: 'Interbank', moneda: 'PEN', numero: '200-3000123456',             tipo: 'propia',  convenio: true  },
     { id: 'CTA-003', banco: 'Scotia',    moneda: 'USD', numero: '00-272-123456789',           tipo: 'tercero', convenio: false },
+    { id: 'CTA-004', banco: 'BBVA',      moneda: 'EUR', numero: '0011-0111-11-0100001234',   tipo: 'propia',  convenio: true  },
   ],
   'CLI-002': [
-    { id: 'CTA-010', banco: 'BBVA', moneda: 'USD', numero: '0011-0111-11-0100075234', tipo: 'propia',  convenio: true },
-    { id: 'CTA-011', banco: 'BCP',  moneda: 'PEN', numero: '191-2345678-0-45',        tipo: 'tercero', convenio: true },
+    { id: 'CTA-010', banco: 'BBVA',      moneda: 'USD', numero: '0011-0111-11-0100075234',   tipo: 'propia',  convenio: true  },
+    { id: 'CTA-011', banco: 'BCP',       moneda: 'PEN', numero: '191-2345678-0-45',          tipo: 'tercero', convenio: true  },
+  ],
+  'CLI-003': [
+    { id: 'CTA-030', banco: 'BCP',       moneda: 'USD', numero: '191-3000001-0-55',          tipo: 'propia',  convenio: true  },
+    { id: 'CTA-031', banco: 'BCP',       moneda: 'PEN', numero: '191-3000002-0-11',          tipo: 'propia',  convenio: true  },
+    { id: 'CTA-032', banco: 'Interbank', moneda: 'USD', numero: '200-3100099-001',            tipo: 'tercero', convenio: true  },
+  ],
+  'CLI-004': [
+    { id: 'CTA-040', banco: 'Scotiabank',moneda: 'PEN', numero: '00-272-4000001',            tipo: 'propia',  convenio: true  },
+    { id: 'CTA-041', banco: 'BBVA',      moneda: 'USD', numero: '0011-0444-44-0100044001',   tipo: 'propia',  convenio: true  },
   ],
   'CLI-005': [
-    { id: 'CTA-020', banco: 'BCP',  moneda: 'PEN', numero: '191-5000001-0-88', tipo: 'propia', convenio: true },
-    { id: 'CTA-021', banco: 'BBVA', moneda: 'USD', numero: '0011-0222-22-0100088001', tipo: 'propia', convenio: true },
+    { id: 'CTA-050', banco: 'BCP',       moneda: 'PEN', numero: '191-5000001-0-88',          tipo: 'propia',  convenio: true  },
+    { id: 'CTA-051', banco: 'BBVA',      moneda: 'USD', numero: '0011-0222-22-0100088001',   tipo: 'propia',  convenio: true  },
+    { id: 'CTA-052', banco: 'Interbank', moneda: 'PEN', numero: '200-5000099-001',            tipo: 'tercero', convenio: false },
+  ],
+  'CLI-006': [
+    { id: 'CTA-060', banco: 'BCP',       moneda: 'PEN', numero: '191-6000001-0-22',          tipo: 'propia',  convenio: true  },
+    { id: 'CTA-061', banco: 'Interbank', moneda: 'USD', numero: '200-6000012-001',            tipo: 'propia',  convenio: true  },
+  ],
+  'CLI-007': [
+    { id: 'CTA-070', banco: 'BCP',       moneda: 'USD', numero: '191-7000001-0-33',          tipo: 'propia',  convenio: true  },
+    { id: 'CTA-071', banco: 'BBVA',      moneda: 'PEN', numero: '0011-0777-77-0100077001',   tipo: 'propia',  convenio: true  },
   ],
 }
 
-/* Etiqueta para IDs de cuentas cliente */
 const CUENTAS_DISPLAY = {
   'CTA-001': 'BCP · 191-1234567-0-12 (USD)',
   'CTA-002': 'Interbank · 200-3000123456 (PEN)',
   'CTA-003': 'Scotia · 00-272-123456789 (USD)',
+  'CTA-004': 'BBVA · 0011-0111-11-0100001234 (EUR)',
   'CTA-010': 'BBVA · 0011-0111-11-0100075234 (USD)',
   'CTA-011': 'BCP · 191-2345678-0-45 (PEN)',
-  'CTA-020': 'BCP · 191-5000001-0-88 (PEN)',
-  'CTA-021': 'BBVA · 0011-0222-22-0100088001 (USD)',
+  'CTA-030': 'BCP · 191-3000001-0-55 (USD)',
+  'CTA-031': 'BCP · 191-3000002-0-11 (PEN)',
+  'CTA-032': 'Interbank · 200-3100099-001 (USD)',
+  'CTA-040': 'Scotiabank · 00-272-4000001 (PEN)',
+  'CTA-041': 'BBVA · 0011-0444-44-0100044001 (USD)',
+  'CTA-050': 'BCP · 191-5000001-0-88 (PEN)',
+  'CTA-051': 'BBVA · 0011-0222-22-0100088001 (USD)',
+  'CTA-052': 'Interbank · 200-5000099-001 (PEN)',
+  'CTA-060': 'BCP · 191-6000001-0-22 (PEN)',
+  'CTA-061': 'Interbank · 200-6000012-001 (USD)',
+  'CTA-070': 'BCP · 191-7000001-0-33 (USD)',
+  'CTA-071': 'BBVA · 0011-0777-77-0100077001 (PEN)',
   transitoria: 'Cuenta transitoria QAPAQ',
 }
 
-/* ══════════════════════════════════════════════
-   CONFIG PASOS
-══════════════════════════════════════════════ */
+const QAPAQ_DISPLAY = {
+  'QP-USD-1': 'BCP · 191-9000001-0-01 (USD)',
+  'QP-USD-2': 'Interbank · 200-9000002-001 (USD)',
+  'QP-PEN-1': 'BCP · 191-9000003-0-01 (PEN)',
+  'QP-PEN-2': 'Scotiabank · 00-272-9000004 (PEN)',
+}
+
 const STEPS = [
   { id: 1, label: 'Verificación'  },
   { id: 2, label: 'Documentación' },
@@ -60,9 +90,6 @@ const STEPS = [
 
 const MAX_FILES = 10
 
-/* ══════════════════════════════════════════════
-   STEP INDICATOR
-══════════════════════════════════════════════ */
 function StepIndicator({ currentStep }) {
   return (
     <div className="flex items-start justify-center">
@@ -96,9 +123,6 @@ function StepIndicator({ currentStep }) {
   )
 }
 
-/* ══════════════════════════════════════════════
-   ATOMS
-══════════════════════════════════════════════ */
 function Field({ label, required, hint, error, children }) {
   return (
     <div>
@@ -132,11 +156,6 @@ function ResumenCard({ title, children }) {
   )
 }
 
-function fmtMoney(n, moneda = '') {
-  if (n === undefined || n === null || isNaN(n)) return '—'
-  return `${moneda} ${parseFloat(n).toLocaleString('es-PE', { minimumFractionDigits: 2 })}`
-}
-
 const inputCls = (err) => clsx(
   'w-full px-3 py-2.5 rounded-lg border text-sm bg-white outline-none transition-all',
   err
@@ -144,11 +163,8 @@ const inputCls = (err) => clsx(
     : 'border-gray-200 hover:border-gray-300 focus:border-blue-400 focus:ring-2 focus:ring-blue-50'
 )
 
-/* ══════════════════════════════════════════════
-   STEP 1 — VERIFICACIÓN (editable: monto y TC)
-══════════════════════════════════════════════ */
-function Step1({ op, monto, setMonto, tc, setTc, errors }) {
-  const montoN = parseFloat(monto)
+function Step1({ op, monto, tc }) {
+  const montoN = parseMoney(monto)
   const tcN    = parseFloat(tc)
   const montoPEN = !isNaN(montoN) && montoN > 0 && !isNaN(tcN) && tcN > 0
     ? montoN * tcN
@@ -159,7 +175,7 @@ function Step1({ op, monto, setMonto, tc, setTc, errors }) {
       <div>
         <h3 className="text-sm font-semibold text-gray-900 mb-1">Verificación de datos</h3>
         <p className="text-xs text-gray-500">
-          Revisa y ajusta si es necesario el monto y TC pactado. Los datos del cliente son de solo lectura.
+          Revisa los datos de la operación. El monto y TC pactado vienen de la cotización y no pueden modificarse.
         </p>
       </div>
 
@@ -170,80 +186,72 @@ function Step1({ op, monto, setMonto, tc, setTc, errors }) {
         <ResumenRow label="Mesa"         value={op.mesa} />
       </ResumenCard>
 
-      {/* Condiciones pactadas — editables */}
       <div>
         <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-3">Condiciones pactadas</p>
         <div className="grid grid-cols-2 gap-4">
-          <Field label="Monto USD" required error={errors?.monto}>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400">USD</span>
-              <input type="number" min="0" step="0.01" placeholder="0.00"
-                value={monto}
-                onChange={e => setMonto(e.target.value)}
-                className={clsx('w-full pl-12 pr-3 py-2.5 rounded-lg border text-sm text-right outline-none transition-all', inputCls(errors?.monto))} />
+          <Field label="Monto USD">
+            <div className="w-full pl-3 pr-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm text-right font-mono text-gray-700">
+              $ {monto}
             </div>
           </Field>
 
-          <Field label="TC pactado" required error={errors?.tc}>
-            <input type="number" step="0.0001" placeholder="0.0000"
-              value={tc}
-              onChange={e => setTc(e.target.value)}
-              className={clsx('w-full px-3 py-2.5 rounded-lg border text-sm text-right font-mono outline-none transition-all', inputCls(errors?.tc))} />
+          <Field label="TC pactado">
+            <div className="w-full px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm text-right font-mono text-gray-700">
+              {tcN ? tcN.toFixed(4) : '—'}
+            </div>
           </Field>
 
           <Field label="Tipo de operación">
-            <div className={clsx('w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm bg-gray-50 text-gray-500 cursor-not-allowed')}>
+            <div className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm bg-gray-50 text-gray-500 cursor-not-allowed">
               {op.tipo?.toUpperCase() ?? '—'}
             </div>
           </Field>
 
-          <Field label="Contravalor PEN" hint="Calculado: Monto × TC">
+          <Field label="Contravalor PEN" hint="Monto × TC">
             <div className="w-full px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm text-right font-mono text-gray-600">
-              {montoPEN !== null ? `S/ ${parseFloat(montoPEN).toLocaleString('es-PE', { minimumFractionDigits: 2 })}` : '—'}
+              {montoPEN !== null ? `S/ ${fmtMoney(montoPEN)}` : '—'}
             </div>
           </Field>
         </div>
-      </div>
-
-      <div className="flex items-start gap-2.5 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-        <AlertTriangle size={14} className="text-amber-500 mt-0.5 shrink-0" />
-        <p className="text-xs text-amber-700">
-          <strong>AL-FX-01:</strong> Si el cliente solicitó un monto diferente, actualízalo aquí antes de continuar.
-        </p>
       </div>
     </div>
   )
 }
 
-/* ══════════════════════════════════════════════
-   STEP 2 — DOCUMENTACIÓN
-══════════════════════════════════════════════ */
-function Step2({ op, ctaIngreso, setCtaIngreso, ctaEgreso, setCtaEgreso,
+/* ──────────────────────────────
+   STEP 2 — CUENTAS Y DOCUMENTACIÓN
+   ────────────────────────────── */
+function Step2({ op, qpaqEgreso, setQpaqEgreso, qpaqIngreso, setQpaqIngreso,
                  cuentasDestCliente, setCuentasDestCliente,
                  files, setFiles, errors, onPreviewDoc }) {
   const fileInputRef = useRef(null)
 
-  const monedaIngreso = op.tipo === 'compra' ? 'PEN' : 'USD'
   const monedaEgreso  = op.tipo === 'compra' ? 'USD' : 'PEN'
+  const monedaIngreso = op.tipo === 'compra' ? 'PEN' : 'USD'
   const monedaAbono   = op.tipo === 'compra' ? 'PEN' : 'USD'
 
-  /* Cuentas del cliente para la moneda destino */
   const todasCuentasCli = CUENTAS_CLIENTE[op.clienteId] ?? []
   const cuentasCli = todasCuentasCli.filter(c => c.moneda === monedaAbono)
 
-  const optsIngreso = (CUENTAS_QAPAQ[monedaIngreso] || []).map(c => ({
-    value: c.id, label: `${c.banco} · ${c.numero} (${c.moneda})`
-  }))
-  const optsEgreso = (CUENTAS_QAPAQ[monedaEgreso] || []).map(c => ({
-    value: c.id, label: `${c.banco} · ${c.numero} (${c.moneda})`
-  }))
+  const optsEgreso  = (CUENTAS_QAPAQ[monedaEgreso]  || []).map(c => ({ value: c.id, label: `${c.banco} · ${c.numero} (${c.moneda})` }))
+  const optsIngreso = (CUENTAS_QAPAQ[monedaIngreso] || []).map(c => ({ value: c.id, label: `${c.banco} · ${c.numero} (${c.moneda})` }))
 
   const selectCls = (err) => clsx(
     'w-full px-3 py-2.5 rounded-lg border text-sm bg-white outline-none transition-all',
     err ? 'border-red-400 ring-2 ring-red-50' : 'border-gray-200 hover:border-gray-300 focus:border-blue-400 focus:ring-2 focus:ring-blue-50'
   )
 
-  /* Cuentas destino cliente */
+  function updateQpaq(arr, setter, idx, field, val) {
+    setter(prev => prev.map((r, i) => i === idx ? { ...r, [field]: val } : r))
+  }
+  function addQpaqRow(setter) {
+    setter(prev => [...prev, { cuentaId: '', monto: '' }])
+  }
+  function removeQpaqRow(arr, setter, idx) {
+    if (arr.length <= 1) return
+    setter(prev => prev.filter((_, i) => i !== idx))
+  }
+
   function updateCuentaDest(idx, field, val) {
     setCuentasDestCliente(prev => prev.map((r, i) => i === idx ? { ...r, [field]: val } : r))
   }
@@ -254,7 +262,6 @@ function Step2({ op, ctaIngreso, setCtaIngreso, ctaEgreso, setCtaEgreso,
     setCuentasDestCliente(prev => prev.filter((_, i) => i !== idx))
   }
 
-  /* Archivos */
   function handleFileChange(e) {
     const incoming = Array.from(e.target.files)
     if (files.length + incoming.length > MAX_FILES) {
@@ -271,34 +278,85 @@ function Step2({ op, ctaIngreso, setCtaIngreso, ctaEgreso, setCtaEgreso,
     setFiles(prev => [...prev, ...valid])
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
-
   function removeFile(idx) { setFiles(prev => prev.filter((_, i) => i !== idx)) }
+
+  function renderQpaqSection({ rows, setter, moneda, opts, title, errorKey }) {
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+            {title}
+            <span className="ml-1 font-normal normal-case text-gray-300">({moneda})</span>
+          </p>
+          <button type="button" onClick={() => addQpaqRow(setter)}
+            className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800 transition-colors">
+            <Plus size={12} /> Agregar
+          </button>
+        </div>
+        <div className="space-y-2">
+          {rows.map((row, idx) => (
+            <div key={idx} className="rounded-lg border border-gray-200 bg-white p-3 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">
+                  {idx === 0 ? `Cuenta ${title.split('–')[0]?.trim().toLowerCase() || ''} principal` : `Cuenta adicional ${idx}`}
+                </p>
+                {rows.length > 1 && (
+                  <button type="button" onClick={() => removeQpaqRow(rows, setter, idx)}
+                    className="text-gray-400 hover:text-red-500 transition-colors">
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <select
+                  value={row.cuentaId}
+                  onChange={e => updateQpaq(rows, setter, idx, 'cuentaId', e.target.value)}
+                  className={selectCls(false)}>
+                  <option value="">Seleccionar cuenta…</option>
+                  {opts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400">{moneda}</span>
+                  <input type="text" inputMode="numeric" placeholder="0.00"
+                    value={row.monto}
+                    onChange={e => updateQpaq(rows, setter, idx, 'monto', e.target.value.replace(/[^0-9.,]/g, ''))}
+                    onBlur={() => { const n = parseMoney(row.monto); if (!isNaN(n) && n > 0) updateQpaq(rows, setter, idx, 'monto', fmtMoney(n)) }}
+                    onFocus={() => updateQpaq(rows, setter, idx, 'monto', row.monto.replace(/,/g, ''))}
+                    className="w-full pl-12 pr-3 py-2 rounded-lg border border-gray-200 text-sm text-right outline-none transition-all hover:border-gray-300 focus:border-blue-400 focus:ring-2 focus:ring-blue-50" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        {errors?.[errorKey] && <p className="text-[11px] text-red-500 mt-1.5 flex items-center gap-1"><AlertCircle size={10} />{errors[errorKey]}</p>}
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-5">
       <div>
-        <h3 className="text-sm font-semibold text-gray-900 mb-1">Cuentas QAPAQ y comprobantes</h3>
-        <p className="text-xs text-gray-500">Define las cuentas definitivas del flujo y adjunta el voucher de abono del cliente.</p>
+        <h3 className="text-sm font-semibold text-gray-900 mb-1">Cuentas bancarias y comprobantes</h3>
+        <p className="text-xs text-gray-500">
+          Revisa y ajusta las cuentas del flujo y el monto por cada una. Los datos se han precargado desde el registro de la operación.
+        </p>
       </div>
 
-      {/* Cuentas QAPAQ */}
-      <div>
-        <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-3">Cuentas QAPAQ</p>
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="Cuenta de ingreso" required hint={`Moneda: ${monedaIngreso}`} error={errors?.ctaIngreso}>
-            <select value={ctaIngreso} onChange={e => setCtaIngreso(e.target.value)} className={selectCls(errors?.ctaIngreso)}>
-              <option value="">Seleccionar cuenta…</option>
-              {optsIngreso.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
-          </Field>
-          <Field label="Cuenta de egreso" required hint={`Moneda: ${monedaEgreso}`} error={errors?.ctaEgreso}>
-            <select value={ctaEgreso} onChange={e => setCtaEgreso(e.target.value)} className={selectCls(errors?.ctaEgreso)}>
-              <option value="">Seleccionar cuenta…</option>
-              {optsEgreso.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
-          </Field>
-        </div>
-      </div>
+      {/* QAPAQ Egreso */}
+      {renderQpaqSection({
+        rows: qpaqEgreso, setter: setQpaqEgreso,
+        moneda: monedaEgreso, opts: optsEgreso,
+        title: 'Cuenta QAPAQ – Egreso',
+        errorKey: 'qpaqEgreso',
+      })}
+
+      {/* QAPAQ Ingreso */}
+      {renderQpaqSection({
+        rows: qpaqIngreso, setter: setQpaqIngreso,
+        moneda: monedaIngreso, opts: optsIngreso,
+        title: 'Cuenta QAPAQ – Ingreso',
+        errorKey: 'qpaqIngreso',
+      })}
 
       {/* Cuentas destino del cliente */}
       <div>
@@ -333,7 +391,6 @@ function Step2({ op, ctaIngreso, setCtaIngreso, ctaEgreso, setCtaEgreso,
                 <div className="grid grid-cols-2 gap-3">
                   <Field label="Cuenta destino">
                     {row._preset && row.cuentaId ? (
-                      /* Cuenta pre-seleccionada desde el wizard: solo lectura */
                       <div className="w-full px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-700">
                         {cuentaInfo ? (
                           <span>
@@ -346,7 +403,6 @@ function Step2({ op, ctaIngreso, setCtaIngreso, ctaEgreso, setCtaEgreso,
                         )}
                       </div>
                     ) : cuentasCli.length > 0 ? (
-                      /* Fila nueva: seleccionar solo del catálogo del cliente */
                       <select
                         value={row.cuentaId}
                         onChange={e => updateCuentaDest(idx, 'cuentaId', e.target.value)}
@@ -359,7 +415,6 @@ function Step2({ op, ctaIngreso, setCtaIngreso, ctaEgreso, setCtaEgreso,
                         ))}
                       </select>
                     ) : (
-                      /* Sin cuentas del cliente en esta moneda */
                       <div className="w-full px-3 py-2.5 rounded-lg border border-amber-200 bg-amber-50 text-xs text-amber-700">
                         Sin cuentas registradas en {monedaAbono} para este cliente
                       </div>
@@ -368,9 +423,11 @@ function Step2({ op, ctaIngreso, setCtaIngreso, ctaEgreso, setCtaEgreso,
                   <Field label={`Monto (${monedaAbono})`}>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400">{monedaAbono}</span>
-                      <input type="number" min="0" step="0.01" placeholder="0.00"
+                      <input type="text" inputMode="numeric" placeholder="0.00"
                         value={row.monto}
-                        onChange={e => updateCuentaDest(idx, 'monto', e.target.value)}
+                        onChange={e => updateCuentaDest(idx, 'monto', e.target.value.replace(/[^0-9.,]/g, ''))}
+                        onBlur={() => { const n = parseMoney(row.monto); if (!isNaN(n) && n > 0) updateCuentaDest(idx, 'monto', fmtMoney(n)) }}
+                        onFocus={() => updateCuentaDest(idx, 'monto', row.monto.replace(/,/g, ''))}
                         className="w-full pl-12 pr-3 py-2.5 rounded-lg border border-gray-200 text-sm text-right outline-none transition-all hover:border-gray-300 focus:border-blue-400 focus:ring-2 focus:ring-blue-50" />
                     </div>
                   </Field>
@@ -448,25 +505,12 @@ function Step2({ op, ctaIngreso, setCtaIngreso, ctaEgreso, setCtaEgreso,
   )
 }
 
-/* ══════════════════════════════════════════════
-   STEP 3 — CONFIRMACIÓN FINAL
-══════════════════════════════════════════════ */
-function Step3({ op, monto, tc, ctaIngreso, ctaEgreso, cuentasDestCliente, files, onConfirmar, loading }) {
-  const monedaIngreso = op.tipo === 'compra' ? 'PEN' : 'USD'
+function Step3({ op, monto, tc, qpaqEgreso, qpaqIngreso, cuentasDestCliente, files, onConfirmar, loading }) {
   const monedaEgreso  = op.tipo === 'compra' ? 'USD' : 'PEN'
+  const monedaIngreso = op.tipo === 'compra' ? 'PEN' : 'USD'
   const monedaAbono   = op.tipo === 'compra' ? 'PEN' : 'USD'
 
-  const optsIngreso = (CUENTAS_QAPAQ[monedaIngreso] || []).map(c => ({
-    value: c.id, label: `${c.banco} · ${c.numero} (${c.moneda})`
-  }))
-  const optsEgreso = (CUENTAS_QAPAQ[monedaEgreso] || []).map(c => ({
-    value: c.id, label: `${c.banco} · ${c.numero} (${c.moneda})`
-  }))
-
-  const ctaIn  = optsIngreso.find(o => o.value === ctaIngreso)?.label ?? ctaIngreso
-  const ctaOut = optsEgreso.find(o => o.value === ctaEgreso)?.label   ?? ctaEgreso
-
-  const montoN = parseFloat(monto)
+  const montoN = parseMoney(monto)
   const tcN    = parseFloat(tc)
   const montoPEN = !isNaN(montoN) && !isNaN(tcN) ? montoN * tcN : null
 
@@ -482,17 +526,37 @@ function Step3({ op, monto, tc, ctaIngreso, ctaEgreso, cuentasDestCliente, files
       <ResumenCard title="Operación">
         <ResumenRow label="ID"              value={op.id} />
         <ResumenRow label="Cliente"         value={op.clienteNombre} />
-        <ResumenRow label="Monto USD"       value={fmtMoney(montoN, '$')} />
-        <ResumenRow label="TC pactado"      value={tcN ? tcN.toFixed(3) : '—'} />
-        {montoPEN && <ResumenRow label="Contravalor PEN" value={fmtMoney(montoPEN, 'S/')} />}
+        <ResumenRow label="Monto USD"       value={`$ ${fmtMoney(montoN)}`} />
+        <ResumenRow label="TC pactado"      value={tcN ? tcN.toFixed(4) : '—'} />
+        {montoPEN && <ResumenRow label="Contravalor PEN" value={`S/ ${fmtMoney(montoPEN)}`} />}
       </ResumenCard>
 
-      <ResumenCard title="Cuentas QAPAQ">
-        <ResumenRow label="Cuenta de ingreso" value={ctaIn} />
-        <ResumenRow label="Cuenta de egreso"  value={ctaOut} />
-      </ResumenCard>
+      <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+        <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-200">
+          <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Cuentas QAPAQ</p>
+        </div>
+        <div className="divide-y divide-gray-100">
+          <div className="px-4 py-2.5 bg-gray-50/50">
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Egreso ({monedaEgreso})</p>
+            {qpaqEgreso.filter(r => r.cuentaId).map((row, idx) => (
+              <div key={idx} className="flex items-center justify-between gap-4 py-1.5">
+                <p className="text-xs text-gray-600">{QAPAQ_DISPLAY[row.cuentaId] ?? row.cuentaId}</p>
+                <p className="text-sm font-mono text-gray-700">{row.monto ? `${monedaEgreso} ${fmtMoney(+row.monto)}` : '—'}</p>
+              </div>
+            ))}
+          </div>
+          <div className="px-4 py-2.5">
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Ingreso ({monedaIngreso})</p>
+            {qpaqIngreso.filter(r => r.cuentaId).map((row, idx) => (
+              <div key={idx} className="flex items-center justify-between gap-4 py-1.5">
+                <p className="text-xs text-gray-600">{QAPAQ_DISPLAY[row.cuentaId] ?? row.cuentaId}</p>
+                <p className="text-sm font-mono text-gray-700">{row.monto ? `${monedaIngreso} ${fmtMoney(+row.monto)}` : '—'}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
 
-      {/* Cuentas destino del cliente */}
       {cuentasDestCliente.some(r => r.cuentaId || r.monto) && (
         <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
           <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-200">
@@ -509,7 +573,7 @@ function Step3({ op, monto, tc, ctaIngreso, ctaEgreso, cuentasDestCliente, files
                 </p>
                 {row.monto && (
                   <p className="text-sm font-mono text-gray-700 shrink-0">
-                    {monedaAbono} {parseFloat(row.monto).toLocaleString('es-PE', { minimumFractionDigits: 2 })}
+                    {monedaAbono} {fmtMoney(parseMoney(row.monto))}
                   </p>
                 )}
               </div>
@@ -533,26 +597,35 @@ function Step3({ op, monto, tc, ctaIngreso, ctaEgreso, cuentasDestCliente, files
   )
 }
 
-/* ══════════════════════════════════════════════
-   MAIN WIZARD
-══════════════════════════════════════════════ */
 export default function ConfirmarAbonoWizard({ op, onBack, onConfirmar, onPreviewDoc }) {
   const [step,    setStep]    = useState(1)
   const [errors,  setErrors]  = useState({})
   const [loading, setLoading] = useState(false)
 
-  /* Pre-carga desde la operación guardada */
-  const [monto,   setMonto]   = useState(String(op?.montoUSD ?? ''))
+  function parseQpaqArr(raw, fallback) {
+    if (!raw || raw.length === 0) return fallback
+    return raw.map(r => {
+      if (typeof r === 'string') return { cuentaId: r, monto: '' }
+      const m = r.monto
+      return { cuentaId: r.cuentaId || '', monto: m && !isNaN(parseMoney(m)) ? fmtMoney(parseMoney(m)) : '' }
+    })
+  }
+
+  const [monto,   setMonto]   = useState(op?.montoUSD ? fmtMoney(op.montoUSD) : '')
   const [tc,      setTc]      = useState(String(op?.tc ?? ''))
-  const [ctaIngreso, setCtaIngreso] = useState(
-    (op?.cuentasQpaqIngreso ?? [])[0] || op?.cuentaQpaqIn || ''
+
+  const [qpaqEgreso, setQpaqEgreso] = useState(
+    parseQpaqArr(op?.cuentasQpaqEgreso, [{ cuentaId: op?.cuentaQpaqOut || '', monto: '' }])
   )
-  const [ctaEgreso, setCtaEgreso] = useState(
-    (op?.cuentasQpaqEgreso ?? [])[0] || op?.cuentaQpaqOut || ''
+  const [qpaqIngreso, setQpaqIngreso] = useState(
+    parseQpaqArr(op?.cuentasQpaqIngreso, [{ cuentaId: op?.cuentaQpaqIn || '', monto: '' }])
   )
   const [cuentasDestCliente, setCuentasDestCliente] = useState(() => {
     if (op?.cuentasDest?.length) {
-      return op.cuentasDest.map(r => ({ ...r, _preset: !!r.cuentaId }))
+      return op.cuentasDest.map(r => {
+        const m = r.monto
+        return { ...r, monto: m && !isNaN(parseMoney(m)) ? fmtMoney(parseMoney(m)) : '', _preset: !!r.cuentaId }
+      })
     }
     return [{ cuentaId: '', monto: '', _preset: false }]
   })
@@ -561,18 +634,13 @@ export default function ConfirmarAbonoWizard({ op, onBack, onConfirmar, onPrevie
   if (!op) return null
 
   function validateStep1() {
-    const e = {}
-    const m = parseFloat(monto)
-    const t = parseFloat(tc)
-    if (!monto || isNaN(m) || m <= 0) e.monto = 'Ingresa un monto válido.'
-    if (!tc    || isNaN(t) || t <= 0) e.tc    = 'Ingresa el TC pactado.'
-    return e
+    return {}
   }
 
   function validateStep2() {
     const e = {}
-    if (!ctaIngreso) e.ctaIngreso = 'Selecciona la cuenta de ingreso.'
-    if (!ctaEgreso)  e.ctaEgreso  = 'Selecciona la cuenta de egreso.'
+    if (!qpaqEgreso.some(r => r.cuentaId))  e.qpaqEgreso  = 'Selecciona al menos una cuenta de egreso.'
+    if (!qpaqIngreso.some(r => r.cuentaId)) e.qpaqIngreso = 'Selecciona al menos una cuenta de ingreso.'
     if (files.length === 0) e.files = 'Adjunta al menos un comprobante de abono.'
     return e
   }
@@ -595,19 +663,18 @@ export default function ConfirmarAbonoWizard({ op, onBack, onConfirmar, onPrevie
     setLoading(true)
     setTimeout(() => {
       onConfirmar(op.id, {
-        ctaIngreso,
-        ctaEgreso,
+        cuentasQpaqEgreso: qpaqEgreso.filter(r => r.cuentaId),
+        cuentasQpaqIngreso: qpaqIngreso.filter(r => r.cuentaId),
         cuentasDestCliente: cuentasDestCliente.map(({ _preset, ...r }) => r),
         files,
-        montoUSD: parseFloat(monto),
+        montoUSD: parseMoney(monto),
         tc: parseFloat(tc),
       })
       setLoading(false)
     }, 1000)
   }
 
-  const canNext1 = !!monto && !!tc
-  const canNext2 = files.length > 0 && !!ctaIngreso && !!ctaEgreso
+  const canNext2 = qpaqEgreso.some(r => r.cuentaId) && qpaqIngreso.some(r => r.cuentaId) && files.length > 0
 
   return (
     <div className="max-w-4xl mx-auto pb-10">
@@ -628,18 +695,17 @@ export default function ConfirmarAbonoWizard({ op, onBack, onConfirmar, onPrevie
           {step === 1 && (
             <Step1
               op={op}
-              monto={monto} setMonto={setMonto}
-              tc={tc}       setTc={setTc}
-              errors={errors}
+              monto={monto}
+              tc={tc}
             />
           )}
           {step === 2 && (
             <Step2
               op={op}
-              ctaIngreso={ctaIngreso}           setCtaIngreso={setCtaIngreso}
-              ctaEgreso={ctaEgreso}             setCtaEgreso={setCtaEgreso}
+              qpaqEgreso={qpaqEgreso}         setQpaqEgreso={setQpaqEgreso}
+              qpaqIngreso={qpaqIngreso}       setQpaqIngreso={setQpaqIngreso}
               cuentasDestCliente={cuentasDestCliente} setCuentasDestCliente={setCuentasDestCliente}
-              files={files}                     setFiles={setFiles}
+              files={files}                   setFiles={setFiles}
               errors={errors}
               onPreviewDoc={onPreviewDoc}
             />
@@ -648,8 +714,8 @@ export default function ConfirmarAbonoWizard({ op, onBack, onConfirmar, onPrevie
             <Step3
               op={op}
               monto={monto} tc={tc}
-              ctaIngreso={ctaIngreso}
-              ctaEgreso={ctaEgreso}
+              qpaqEgreso={qpaqEgreso}
+              qpaqIngreso={qpaqIngreso}
               cuentasDestCliente={cuentasDestCliente}
               files={files}
               onConfirmar={handleConfirmarFinal}
@@ -670,10 +736,10 @@ export default function ConfirmarAbonoWizard({ op, onBack, onConfirmar, onPrevie
         {step < 3 && (
           <button
             onClick={handleNext}
-            disabled={step === 1 ? !canNext1 : !canNext2}
+            disabled={step === 2 ? !canNext2 : false}
             className={clsx(
               'flex items-center gap-1.5 px-6 py-2 rounded-xl text-sm font-semibold shadow-sm transition-all active:scale-95',
-              (step === 1 ? !canNext1 : !canNext2)
+              (step === 2 && !canNext2)
                 ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
                 : 'bg-blue-600 text-white hover:bg-blue-700'
             )}

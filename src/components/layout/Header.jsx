@@ -1,4 +1,4 @@
-import { Bell, Search, ChevronDown, User, Settings, LogOut, HelpCircle, TrendingUp, TrendingDown, Minus } from 'lucide-react'
+import { ChevronDown, User, Settings, LogOut, HelpCircle, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import clsx from 'clsx'
 
@@ -32,7 +32,6 @@ export default function Header({
   marketData,
   ops,
 }) {
-  const [searchFocused, setSearchFocused] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const menuRef = useRef(null)
 
@@ -133,33 +132,6 @@ export default function Header({
 
         {/* Controles derecha */}
         <div className="flex items-center gap-2">
-
-          {/* Buscador */}
-          <div
-            className={clsx(
-              'flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all duration-200',
-              searchFocused
-                ? 'bg-white border border-blue-400 w-56'
-                : 'bg-gray-100 border border-gray-100 w-44 hover:border-gray-200'
-            )}
-          >
-            <Search size={13} className="text-gray-400 shrink-0" />
-            <input
-              type="text"
-              placeholder="Buscar..."
-              onFocus={() => setSearchFocused(true)}
-              onBlur={() => setSearchFocused(false)}
-              className="bg-transparent outline-none text-sm text-gray-700 placeholder-gray-400 w-full"
-            />
-          </div>
-
-          {/* Campana */}
-          <button className="relative p-2 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
-            <Bell size={16} />
-            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-blue-500 rounded-full ring-2 ring-white" />
-          </button>
-
-          <div className="h-6 w-px bg-gray-200 mx-1" />
 
           {/* Usuario — botón con dropdown */}
           <div className="relative" ref={menuRef}>

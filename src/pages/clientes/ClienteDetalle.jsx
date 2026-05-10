@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { ChevronLeft, User, Building2, Briefcase, Shield, FileText, AlertTriangle, CheckCircle2, Clock, XCircle, Upload, Pencil, Check, X } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { ChevronLeft, User, Building2, Briefcase, Shield, FileText, AlertTriangle, CheckCircle2, Clock, XCircle, Upload, Pencil, Check, X, Trash2 } from 'lucide-react'
 import clsx from 'clsx'
 import CuentasBancariasTab from './CuentasBancariasTab'
 import ConveniosTab from './ConveniosTab'
@@ -198,10 +198,9 @@ function DocEstadoBadge({ estado }) {
 }
 
 function DocumentacionTab({ cliente: c, modoEdicion }) {
-  /* Mock per-client docs derived from type */
   const isPJ = ['PJ', 'EF'].includes(c.tipo)
 
-  const documentos = [
+  const docDefs = [
     { id: 1, nombre: 'Documento de identidad (DNI / CE)', estado: 'entregado', archivo: 'dni_cliente.pdf', obligatorio: true },
     { id: 2, nombre: 'Constancia de domicilio', estado: c.docsPendientes > 0 ? 'pendiente' : 'entregado', archivo: c.docsPendientes > 0 ? null : 'domicilio.pdf', obligatorio: true },
     { id: 3, nombre: isPJ ? 'Ficha RUC / Escritura de constitución' : 'Ficha RUC', estado: isPJ ? 'entregado' : 'no_aplica', archivo: isPJ ? 'ruc.pdf' : null, obligatorio: isPJ },
@@ -210,9 +209,47 @@ function DocumentacionTab({ cliente: c, modoEdicion }) {
     { id: 6, nombre: 'Poderes notariales / Nombramiento de representantes', estado: isPJ ? 'entregado' : 'no_aplica', archivo: isPJ ? 'poderes.pdf' : null, obligatorio: isPJ },
   ]
 
-  const entregados = documentos.filter(d => d.estado === 'entregado').length
-  const pendientes = documentos.filter(d => d.estado === 'pendiente').length
-  const total      = documentos.filter(d => d.estado !== 'no_aplica').length
+  const opcionales = [
+    ...(c.tipo === 'EF' ? [
+      { id: 101, nombre: 'Convenio Marco de Operaciones', archivo: null },
+      { id: 102, nombre: 'Vigencia de Poderes', archivo: null },
+      { id: 103, nombre: 'DOI Representantes Legales', archivo: null },
+    ] : []),
+    { id: 199, nombre: 'Otros documentos', archivo: null },
+  ]
+
+  const allDefs = [...docDefs, ...opcionales]
+
+  const [filesPerDoc, setFilesPerDoc] = useState(() => {
+    const init = {}
+    allDefs.forEach(d => {
+      if (d.archivo) init[d.id] = [{ name: d.archivo, id: `${d.id}_0` }]
+    })
+    return init
+  })
+
+  function addFiles(docId, filenames) {
+    setFilesPerDoc(prev => {
+      const existing = prev[docId] ?? []
+      const newFiles = filenames.map((name, i) => ({ name, id: `${docId}_${Date.now()}_${i}` }))
+      return { ...prev, [docId]: [...existing, ...newFiles] }
+    })
+  }
+
+  function removeFile(docId, fileId) {
+    setFilesPerDoc(prev => {
+      const remaining = (prev[docId] ?? []).filter(f => f.id !== fileId)
+      if (remaining.length === 0) {
+        const n = { ...prev }; delete n[docId]; return n
+      }
+      return { ...prev, [docId]: remaining }
+    })
+  }
+
+  const docsRequeridos = docDefs.filter(d => d.estado !== 'no_aplica')
+  const entregados = docsRequeridos.filter(d => d.estado === 'entregado' || filesPerDoc[d.id]?.length > 0).length
+  const pendientes = docsRequeridos.filter(d => d.estado === 'pendiente' && !filesPerDoc[d.id]?.length).length
+  const total      = docsRequeridos.length
 
   return (
     <div className="space-y-4">
@@ -232,38 +269,92 @@ function DocumentacionTab({ cliente: c, modoEdicion }) {
         </div>
 
         <div className="space-y-2">
-          {documentos.map(doc => (
-            <div key={doc.id} className="flex items-center justify-between gap-4 py-3 border-b last:border-0"
-              style={{ borderColor: 'var(--color-border)' }}>
-              <div className="flex items-center gap-3 min-w-0">
-                <FileText size={13} className="text-gray-400 shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-sm text-gray-800 truncate">
-                    {doc.nombre}
-                    {doc.obligatorio && <span className="text-red-400 ml-0.5 text-[11px]">*</span>}
-                  </p>
-                  {doc.archivo && (
-                    <p className="text-[11px] text-blue-500 truncate mt-0.5 cursor-pointer hover:underline">{doc.archivo}</p>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <DocEstadoBadge estado={doc.estado} />
-                {modoEdicion && doc.estado === 'pendiente' && (
-                  <button className="flex items-center gap-1 text-[11px] font-medium text-blue-600 hover:text-blue-700 transition-colors">
-                    <Upload size={11} /> Subir
-                  </button>
-                )}
-                {modoEdicion && doc.estado === 'entregado' && (
-                  <button className="flex items-center gap-1 text-[11px] font-medium text-gray-400 hover:text-amber-600 transition-colors">
-                    <Upload size={11} /> Reemplazar
-                  </button>
-                )}
-              </div>
+          {docDefs.map(doc => {
+            if (doc.estado === 'no_aplica') return null
+            const files = filesPerDoc[doc.id] ?? []
+            const isLoaded = files.length > 0
+            return (
+              <DocRow key={doc.id} doc={doc} files={files} isLoaded={isLoaded}
+                modoEdicion={modoEdicion}
+                onUpload={filenames => addFiles(doc.id, filenames)}
+                onRemove={fileId => removeFile(doc.id, fileId)} />
+            )
+          })}
+        </div>
+
+        {opcionales.length > 0 && (
+          <div className="mt-6 pt-4 border-t space-y-2" style={{ borderColor: 'var(--color-border)' }}>
+            <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Documentos opcionales</p>
+            {opcionales.map(doc => {
+              const files = filesPerDoc[doc.id] ?? []
+              const isLoaded = files.length > 0
+              return (
+                <DocRow key={doc.id} doc={{ ...doc, estado: 'opcional', obligatorio: false }} files={files} isLoaded={isLoaded}
+                  modoEdicion={modoEdicion}
+                  onUpload={filenames => addFiles(doc.id, filenames)}
+                  onRemove={fileId => removeFile(doc.id, fileId)} />
+              )
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function DocRow({ doc, files, isLoaded, modoEdicion, onUpload, onRemove }) {
+  const fileRef = useRef(null)
+
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-4 py-3 border-b last:border-0"
+        style={{ borderColor: 'var(--color-border)' }}>
+        <div className="flex items-center gap-3 min-w-0">
+          <FileText size={13} className="text-gray-400 shrink-0" />
+          <div className="min-w-0">
+            <p className="text-sm text-gray-800 truncate">
+              {doc.nombre}
+              {doc.obligatorio && <span className="text-red-400 ml-0.5 text-[11px]">*</span>}
+            </p>
+            {files.length > 0 && (
+              <p className="text-[11px] text-gray-500 mt-0.5">{files.length} archivo(s)</p>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <DocEstadoBadge estado={isLoaded ? 'entregado' : doc.estado} />
+          {modoEdicion && (
+            <>
+              <button onClick={() => fileRef.current?.click()}
+                className="flex items-center gap-1 text-[11px] font-medium text-blue-600 hover:text-blue-700 transition-colors">
+                <Upload size={11} /> {isLoaded ? 'Subir otro' : 'Subir'}
+              </button>
+              <input ref={fileRef} type="file" multiple className="hidden" accept=".pdf,.jpg,.jpeg,.png"
+                onChange={e => {
+                  const selected = Array.from(e.target.files ?? [])
+                  if (selected.length) onUpload(selected.map(f => f.name))
+                  e.target.value = ''
+                }} />
+            </>
+          )}
+        </div>
+      </div>
+      {files.length > 0 && (
+        <div className="ml-9 pb-2 mt-2 pt-1 space-y-1.5 border-t border-dashed border-gray-100">
+          {files.map(f => (
+            <div key={f.id} className="flex items-center gap-1.5 text-xs text-gray-500">
+              <FileText size={10} className="shrink-0 text-gray-400" />
+              <span className="truncate">{f.name}</span>
+              {modoEdicion && (
+                <button onClick={() => onRemove(f.id)}
+                  className="text-gray-300 hover:text-red-500 transition-colors shrink-0 ml-1" title="Eliminar archivo">
+                  <Trash2 size={11} />
+                </button>
+              )}
             </div>
           ))}
         </div>
-      </div>
+      )}
     </div>
   )
 }

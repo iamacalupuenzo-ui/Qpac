@@ -53,7 +53,7 @@ const securityParams = [
 
 const operationalParams = [
   { label: 'Límite general',       value: '5,000,000',  unit: 'USD', mod: 'FX'  },
-  { label: 'Tolerancia TC',        value: '2.5',         unit: '%',   mod: 'TC'  },
+  { label: 'Tolerancia TC',        value: '250',         unit: 'pbs', mod: 'TC'  },
   { label: 'Umbral PLAFT',         value: '10,000',      unit: 'USD', mod: 'REG' },
   { label: 'Límite diario',        value: '10,000,000',  unit: 'USD', mod: 'FX'  },
 ]

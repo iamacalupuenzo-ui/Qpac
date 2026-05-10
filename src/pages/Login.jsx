@@ -10,11 +10,20 @@ export default function Login({ onLogin }) {
 
   // Usuarios de prueba del prototipo
   const TEST_USERS = {
-    'admin@qapaq.com.pe':   { password: 'admin2026',  role: 'admin',    name: 'Admin QAPAQ' },
-    'trader@qapaq.com.pe':  { password: 'qapaq2026',  role: 'trader',   name: 'Carlos Medina' },
-    'middle@qapaq.com.pe':  { password: 'qapaq2026',  role: 'middle',   name: 'Marco Quispe' },
-    'back@qapaq.com.pe':    { password: 'qapaq2026',  role: 'back',     name: 'Ana Torres' },
+    'admin@qapaq.com.pe':   { password: 'admin2026',  role: 'admin',     name: 'Admin QAPAQ' },
+    'trader@qapaq.com.pe':  { password: 'qapaq2026',  role: 'trader',    name: 'Carlos Medina' },
+    'middle@qapaq.com.pe':  { password: 'qapaq2026',  role: 'middle',    name: 'Marco Quispe' },
+    'back@qapaq.com.pe':    { password: 'qapaq2026',  role: 'back',      name: 'Ana Torres' },
     'tesoreria@qapaq.com.pe': { password: 'qapaq2026', role: 'tesoreria', name: 'Alfonso Reyes' },
+    'head@qapaq.com.pe':    { password: 'qapaq2026',  role: 'head',      name: 'Diego Marín' },
+    'jefeop@qapaq.com.pe':  { password: 'qapaq2026',  role: 'jefe_op',   name: 'Lucía Fernández' },
+    'contab@qapaq.com.pe':  { password: 'qapaq2026',  role: 'contab',    name: 'Rosa Martínez' },
+    'headtes@qapaq.com.pe': { password: 'qapaq2026',  role: 'head_tes',  name: 'Fernando Luna' },
+    'gerente@qapaq.com.pe': { password: 'qapaq2026',  role: 'gerente',   name: 'Elena Vargas' },
+    'riesgos@qapaq.com.pe': { password: 'qapaq2026',  role: 'riesgos',   name: 'Pedro Castillo' },
+    'plaft@qapaq.com.pe':   { password: 'qapaq2026',  role: 'plaft',     name: 'Sofía Quispe' },
+    'reportes@qapaq.com.pe':{ password: 'qapaq2026',  role: 'reportes',  name: 'Jorge Delgado' },
+    'seguridad@qapaq.com.pe':{ password: 'qapaq2026', role: 'seguridad', name: 'Martín Paredes' },
   }
 
   function handleSubmit(e) {
@@ -195,20 +204,19 @@ export default function Login({ onLogin }) {
           </p>
 
           {/* Hint para prototipo */}
-          <div className="mt-4 px-3 py-3 rounded-lg bg-amber-50 border border-amber-100 space-y-1.5">
-            <p className="text-xs text-amber-700 font-semibold">Prototipo — usuarios de prueba</p>
-            {[
-              { email: 'admin@qapaq.com.pe',  pass: 'admin2026', label: 'Administrador' },
-              { email: 'trader@qapaq.com.pe', pass: 'qapaq2026', label: 'Trader' },
-              { email: 'middle@qapaq.com.pe', pass: 'qapaq2026', label: 'Middle Office' },
-              { email: 'tesoreria@qapaq.com.pe', pass: 'qapaq2026', label: 'Tesorería' },
-            ].map(u => (
-              <div key={u.email} className="flex items-center justify-between">
-                <span className="text-[11px] text-amber-600">{u.label}</span>
-                <code className="text-[11px] font-mono text-amber-700">{u.email} · {u.pass}</code>
-              </div>
-            ))}
-          </div>
+          <details className="mt-4 px-3 py-3 rounded-lg bg-amber-50 border border-amber-100">
+            <summary className="text-xs text-amber-700 font-semibold cursor-pointer select-none">
+              Prototipo — usuarios de prueba ({Object.keys(TEST_USERS).length} disponibles)
+            </summary>
+            <div className="mt-2 space-y-1">
+              {Object.entries(TEST_USERS).map(([email, u]) => (
+                <div key={email} className="flex items-center justify-between">
+                  <span className="text-[11px] text-amber-600">{u.name}</span>
+                  <code className="text-[11px] font-mono text-amber-700">{email} · {u.password}</code>
+                </div>
+              ))}
+            </div>
+          </details>
         </div>
       </div>
     </div>

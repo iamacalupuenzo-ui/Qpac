@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { 
   X, HelpCircle, AlertTriangle, Info, 
   CheckCircle2, Clock, Calculator, ArrowRight,
@@ -9,10 +9,6 @@ import clsx from 'clsx'
 /* ══════════════════════════════════════════════
    HELPERS
 ══════════════════════════════════════════════ */
-function fmtMoney(n) {
-  if (!n) return '0.00'
-  return parseFloat(n).toLocaleString('es-PE', { minimumFractionDigits: 2 })
-}
 
 /* ══════════════════════════════════════════════
    COMPONENT
@@ -212,3 +208,4 @@ export default function AjusteContableDrawer({ open, onClose, onSave, accounts =
     </div>
   )
 }
+

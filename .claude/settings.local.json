@@ -9,7 +9,11 @@
       "Bash(Select-Object FullName, Name, Directory)",
       "Bash(Format-Table -AutoSize)",
       "Bash(awk -F/ '{print $NF, $0}')",
-      "Bash(npx --yes acorn --ecma2020 --module src/pages/operaciones/CotizacionWizard.jsx)"
+      "Bash(npx --yes acorn --ecma2020 --module src/pages/operaciones/CotizacionWizard.jsx)",
+      "Bash(py --version)",
+      "Bash(where python3 *)",
+      "Bash(where py *)",
+      "Bash(python3 fix_encoding.py)"
     ]
   }
 }

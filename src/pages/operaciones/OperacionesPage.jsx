@@ -1,10 +1,11 @@
-import { useState, useMemo, useRef, useEffect } from 'react'
+﻿import { useState, useMemo, useRef, useEffect } from 'react'
 import {
   Search, X, AlertTriangle, ChevronDown, Check,
-  Eye, Info, Ban, ArrowDownLeft, ArrowUpRight, Clock, Filter, Plus, Pencil, ShieldCheck, Send,
+  Eye, Info, Ban, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Clock, Filter, Plus, Pencil, ShieldCheck, Send,
   ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import clsx from 'clsx'
+import { fmtDate, fmtMoney, fmtTC } from '../../utils/format.js'
 import CotizacionWizard from './CotizacionWizard'
 import ConfirmarAbonoWizard from './ConfirmarAbonoWizard'
 import SubsanacionWizard from './SubsanacionWizard'
@@ -43,14 +44,6 @@ function subDays(n) {
   d.setDate(d.getDate() - n)
   return d.toISOString().split('T')[0]
 }
-function fmtDate(iso) {
-  if (!iso) return '—'
-  const [y, m, dd] = iso.split('-')
-  return `${dd}/${m}/${y}`
-}
-function fmtMoney(n) { return n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
-function fmtTC(n)    { return n.toFixed(3) }
-
 const T = todayStr()
 
 /* Correlativo para nuevas ops desde el wizard */
@@ -73,18 +66,24 @@ const MOCK_OPS_INIT = [
     tcRef: 3.739, tcFuente: 'Datatec',
     trader: 'Andrés Valdivia C.', mesa: 'Mesa Alpha',
     backOffice: 'María Torres',
+    cuentasQpaqEgreso:  [{ cuentaId: 'QP-USD-1', monto: '25000' }, { cuentaId: 'QP-USD-2', monto: '25000' }],
+    cuentasQpaqIngreso: [{ cuentaId: 'QP-PEN-1', monto: '187100' }],
     cuentasDest: [{ cuentaId: 'CTA-002', monto: '187100' }],
     solAnulacion: null, historial: [],
     fechaAnulacion: null, horaAnulacion: null, anuladoPor: null, causaAnulacion: null,
   },
   {
     id: 'OP-2026-002',
+    clienteId: 'CLI-002',
     clienteNombre: 'Textiles del Sur E.I.R.L.',
     tipo: 'venta', montoUSD: 25_000, tc: 3.738, montoPEN: 93_450,
     estado: 'observada', fecha: T, hora: '10:30',
     tcRef: 3.738, tcFuente: 'Datatec',
     trader: 'Karla Mendoza R.', mesa: 'Mesa Beta',
     backOffice: 'Jorge Castillo',
+    cuentasQpaqEgreso:  [{ cuentaId: 'QP-PEN-2', monto: '93450' }],
+    cuentasQpaqIngreso: [{ cuentaId: 'QP-USD-1', monto: '25000' }],
+    cuentasDest: [{ cuentaId: 'CTA-010', monto: '25000' }],
     solAnulacion: {
       causa: 'cliente_desiste',
       detalle: 'El cliente llamó indicando que ya no requiere la operación. Confirma desistimiento vía email a las 12:40.',
@@ -103,9 +102,12 @@ const MOCK_OPS_INIT = [
     tcRef: 3.740, tcFuente: 'Datatec',
     trader: 'Rodrigo Paredes F.', mesa: 'Mesa Alpha',
     backOffice: 'Ana L. Ramírez',
-    cuentasQpaqIngreso: ['QP-PEN-1'],
-    cuentasQpaqEgreso:  ['QP-USD-1'],
-    cuentasDest: [{ cuentaId: 'CTA-030', monto: '120000' }],
+    cuentasQpaqIngreso: [
+      { cuentaId: 'QP-PEN-1', monto: '300000' },
+      { cuentaId: 'QP-PEN-2', monto: '148920' },
+    ],
+    cuentasQpaqEgreso:  [{ cuentaId: 'QP-USD-1', monto: '120000' }],
+    cuentasDest: [{ cuentaId: 'CTA-031', monto: '448920' }],
     comprobantes: [
       { name: 'Voucher_transferencia_OP003.pdf' },
       { name: 'Constancia_recibo_OP003.jpg' },
@@ -122,9 +124,9 @@ const MOCK_OPS_INIT = [
     tcRef: 3.742, tcFuente: 'Manual',
     trader: 'Sofía Ríos M.', mesa: 'Mesa Beta',
     backOffice: 'María Torres',
-    cuentasQpaqIngreso: ['QP-USD-2'],
-    cuentasQpaqEgreso:  ['QP-PEN-2'],
-    cuentasDest: [{ cuentaId: 'CTA-040', monto: '56085' }],
+    cuentasQpaqIngreso: [{ cuentaId: 'QP-USD-2', monto: '15000' }],
+    cuentasQpaqEgreso:  [{ cuentaId: 'QP-PEN-2', monto: '56085' }],
+    cuentasDest: [{ cuentaId: 'CTA-041', monto: '15000' }],
     comprobantes: [{ name: 'Comprobante_abono_OP004.pdf' }],
     solAnulacion: null,
     historial: [
@@ -141,7 +143,9 @@ const MOCK_OPS_INIT = [
     estado: 'reservada', fecha: T, hora: '11:05',
     trader: 'Andrés Valdivia C.', mesa: 'Mesa Alpha',
     backOffice: null,
-    cuentasDest: [],
+    cuentasQpaqEgreso:  [{ cuentaId: 'QP-USD-1', monto: '40000' }, { cuentaId: 'QP-USD-2', monto: '40000' }],
+    cuentasQpaqIngreso: [{ cuentaId: 'QP-PEN-2', monto: '299200' }],
+    cuentasDest: [{ cuentaId: 'CTA-050', monto: '299200' }],
     solAnulacion: {
       causa: 'error_operativo',
       detalle: 'Se ingresó TC 3.740 pero el tipo de cambio pactado con el cliente fue 3.745. Error en el registro.',
@@ -153,21 +157,29 @@ const MOCK_OPS_INIT = [
   },
   {
     id: 'OP-2026-006',
+    clienteId: 'CLI-006',
     clienteNombre: 'Distribuidora Norte EIRL',
     tipo: 'venta', montoUSD: 8_500, tc: 3.744, montoPEN: 31_824,
     estado: 'liquidada', fecha: subDays(1), hora: '14:15',
     trader: 'César Huanca P.', mesa: 'Mesa Gamma',
     backOffice: 'Jorge Castillo',
+    cuentasQpaqEgreso:  [{ cuentaId: 'QP-PEN-1', monto: '31824' }],
+    cuentasQpaqIngreso: [{ cuentaId: 'QP-USD-1', monto: '8500' }],
+    cuentasDest: [{ cuentaId: 'CTA-061', monto: '8500' }],
     solAnulacion: null, historial: [],
     fechaAnulacion: null, horaAnulacion: null, anuladoPor: null, causaAnulacion: null,
   },
   {
     id: 'OP-2026-007',
+    clienteId: 'CLI-007',
     clienteNombre: 'Farmacéutica Andina S.A.',
     tipo: 'compra', montoUSD: 45_000, tc: 3.743, montoPEN: 168_435,
     estado: 'anulada', fecha: subDays(2), hora: '10:00',
     trader: 'Rodrigo Paredes F.', mesa: 'Mesa Alpha',
     backOffice: 'Ana L. Ramírez',
+    cuentasQpaqEgreso:  [{ cuentaId: 'QP-USD-2', monto: '45000' }],
+    cuentasQpaqIngreso: [{ cuentaId: 'QP-PEN-1', monto: '168435' }],
+    cuentasDest: [{ cuentaId: 'CTA-071', monto: '168435' }],
     solAnulacion: null,
     historial: [
       { tipo: 'solicitud', por: 'Rodrigo Paredes F. (Trader)',   fecha: subDays(2), hora: '10:45', causa: 'transferencia_mal_ejecutada', detalle: 'La transferencia fue realizada a una cuenta bancaria incorrecta por error del cliente.' },
@@ -179,11 +191,15 @@ const MOCK_OPS_INIT = [
   },
   {
     id: 'OP-2026-008',
+    clienteId: 'CLI-002',
     clienteNombre: 'Textiles del Sur E.I.R.L.',
     tipo: 'venta', montoUSD: 12_000, tc: 3.737, montoPEN: 44_844,
     estado: 'observada', fecha: T, hora: '13:40',
     trader: 'Luis Fernández A.', mesa: 'Mesa Gamma',
     backOffice: null,
+    cuentasQpaqEgreso:  [{ cuentaId: 'QP-PEN-2', monto: '44844' }],
+    cuentasQpaqIngreso: [{ cuentaId: 'QP-USD-2', monto: '12000' }],
+    cuentasDest: [{ cuentaId: 'CTA-010', monto: '12000' }],
     solAnulacion: null, historial: [],
     fechaAnulacion: null, horaAnulacion: null, anuladoPor: null, causaAnulacion: null,
   },
@@ -305,14 +321,18 @@ function EstadoBadge({ estado }) {
   )
 }
 
-function TipoBadge({ tipo }) {
-  return tipo === 'compra'
-    ? <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
-        <ArrowDownLeft size={10} /> Compra
-      </span>
-    : <span className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">
-        <ArrowUpRight size={10} /> Venta
-      </span>
+function TipoBadge({ tipo, monedaCruzada }) {
+  if (tipo === 'compra')
+    return <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+      <ArrowDownLeft size={10} /> Compra
+    </span>
+  if (tipo === 'cruzada')
+    return <span className="inline-flex items-center gap-1 text-[11px] font-medium text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full">
+      <ArrowLeftRight size={10} /> Cruzada {monedaCruzada === 'USD' ? 'USD' : 'PEN'}
+    </span>
+  return <span className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">
+    <ArrowUpRight size={10} /> Venta
+  </span>
 }
 
 /* ═══════════════════════════════════════════════
@@ -648,9 +668,12 @@ function VerDetalleDrawer({ open, op, onClose }) {
                 {[
                   { label: 'Correlativo',  value: <span className="font-mono font-bold text-gray-800">{op.id}</span> },
                   { label: 'Fecha / Hora', value: `${fmtDate(op.fecha)} · ${op.hora}` },
-                  { label: 'Monto USD',    value: <span className="font-semibold">USD {fmtMoney(op.montoUSD)}</span> },
+                  { label: op.tipo === 'cruzada' ? `Monto (${op.monedaCruzada ?? 'PEN'})` : 'Monto USD',
+                    value: <span className="font-semibold">{op.tipo === 'cruzada' ? (op.monedaCruzada ?? 'PEN') : 'USD'} {fmtMoney(op.montoUSD)}</span> },
                   { label: 'TC pactado',   value: <span className="font-mono">{fmtTC(op.tc)}</span> },
-                  { label: 'Monto PEN',    value: `PEN ${fmtMoney(op.montoPEN)}` },
+                  op.tipo === 'cruzada'
+                    ? { label: 'Contravalor (salida)', value: `${op.monedaCruzada ?? 'PEN'} ${fmtMoney(op.montoContravalor)}` }
+                    : { label: 'Monto PEN', value: op.montoPEN ? `PEN ${fmtMoney(op.montoPEN)}` : '—' },
                 ].map(({ label, value }) => (
                   <div key={label} className="flex items-center justify-between gap-4 py-2 text-xs first:pt-0 last:pb-0">
                     <span className="text-gray-400 shrink-0">{label}</span>
@@ -1147,13 +1170,15 @@ export default function OperacionesPage({ role = 'trader', activeTab = 'bandeja'
     setOps(prev => prev.map(o => o.id === id ? {
       ...o,
       estado: 'en_revision',
-      cuentaQpaqIn:  data.ctaIngreso,
-      cuentaQpaqOut: data.ctaEgreso,
+      cuentasQpaqIngreso: data.cuentasQpaqIngreso ?? [],
+      cuentasQpaqEgreso:  data.cuentasQpaqEgreso  ?? [],
+      cuentaQpaqIn:  data.cuentasQpaqIngreso?.[0]?.cuentaId || data.ctaIngreso || '',
+      cuentaQpaqOut: data.cuentasQpaqEgreso?.[0]?.cuentaId  || data.ctaEgreso  || '',
       cuentasDest:   data.cuentasDestCliente ?? [],
       comprobantes:  data.files,
       montoUSD:      data.montoUSD ?? o.montoUSD,
       tc:            data.tc       ?? o.tc,
-      montoPEN:      Math.round((data.montoUSD ?? o.montoUSD) * (data.tc ?? o.tc) * 100) / 100,
+      montoPEN:      o.tipo === 'cruzada' ? null : Math.round((data.montoUSD ?? o.montoUSD) * (data.tc ?? o.tc) * 100) / 100,
       enviadaBackOffice: new Date().toISOString(),
     } : o))
     setView('bandeja')
@@ -1178,7 +1203,7 @@ export default function OperacionesPage({ role = 'trader', activeTab = 'bandeja'
         cuentaQpaqOut: data.ctaEgreso,
         montoUSD: data.montoUSD ?? o.montoUSD,
         tc:       data.tc       ?? o.tc,
-        montoPEN: Math.round((data.montoUSD ?? o.montoUSD) * (data.tc ?? o.tc) * 100) / 100,
+        montoPEN: o.tipo === 'cruzada' ? null : Math.round((data.montoUSD ?? o.montoUSD) * (data.tc ?? o.tc) * 100) / 100,
         comprobantes: [...comprobantesOriginales, ...data.files],
         historial: [...(o.historial ?? []), {
           tipo: 'subsanacion', por: 'Trader',
@@ -1436,8 +1461,8 @@ export default function OperacionesPage({ role = 'trader', activeTab = 'bandeja'
       </div>
 
       {/* Tabla */}
-      <div className="bg-white rounded-lg overflow-hidden" style={{ border: '1px solid var(--color-border)' }}>
-        <table className="w-full text-sm border-collapse">
+      <div className="bg-white rounded-lg overflow-x-auto" style={{ border: '1px solid var(--color-border)' }}>
+        <table className="w-full text-sm border-collapse" style={{ minWidth: 960 }}>
           <thead>
             <tr style={{ background: 'var(--color-surface-bg)', borderBottom: '1px solid var(--color-border)' }}>
               {['Correlativo', 'Fecha / Hora', 'Cliente', 'Tipo', 'Monto USD', 'TC',
@@ -1492,7 +1517,7 @@ export default function OperacionesPage({ role = 'trader', activeTab = 'bandeja'
                     <p className="text-[10px] text-gray-400">{op.trader}</p>
                   </td>
 
-                  <td className="px-4 py-3"><TipoBadge tipo={op.tipo} /></td>
+                  <td className="px-4 py-3"><TipoBadge tipo={op.tipo} monedaCruzada={op.monedaCruzada} /></td>
 
                   <td className="px-4 py-3 text-xs text-gray-800 font-medium whitespace-nowrap text-right">
                     {fmtMoney(op.montoUSD)}
@@ -1734,4 +1759,5 @@ export default function OperacionesPage({ role = 'trader', activeTab = 'bandeja'
     </>
   )
 }
+
 

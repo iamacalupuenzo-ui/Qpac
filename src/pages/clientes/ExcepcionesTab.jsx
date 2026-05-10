@@ -1,6 +1,7 @@
-import { useState, useRef, useEffect } from 'react'
+﻿import { useState, useRef, useEffect } from 'react'
 import { AlertTriangle, Plus, X, CheckCircle2, Clock, ShieldOff, FileWarning, RefreshCw, Info, ChevronDown, Search, Check } from 'lucide-react'
 import clsx from 'clsx'
+import { fmtDate } from '../../utils/format.js'
 
 /* ═══════════════════════════════════════════════
    SEARCH HELPERS
@@ -106,11 +107,6 @@ function addDays(base, n) {
 }
 function todayStr() { return new Date().toISOString().split('T')[0] }
 function diffDays(a, b) { return Math.round((new Date(b) - new Date(a)) / 86400000) }
-function fmtDate(d) {
-  if (!d) return '—'
-  const [y, m, dd] = d.split('-')
-  return `${dd}/${m}/${y}`
-}
 let _nextId = 10
 function nextId() { return `EXC-${String(++_nextId).padStart(3, '0')}` }
 
@@ -770,3 +766,5 @@ export default function ExcepcionesTab({ clienteId, clienteNombre, clienteTipo =
     </div>
   )
 }
+
+

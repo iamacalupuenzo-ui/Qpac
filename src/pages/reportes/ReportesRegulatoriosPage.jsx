@@ -1,20 +1,11 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import {
   FileText, Search, Download, Eye, AlertCircle,
   CheckCircle2, Clock, Calendar, ArrowLeft,
   Calculator, ShieldCheck, Info,
 } from 'lucide-react'
 import clsx from 'clsx'
-
-function fmtMoney(n, m = '') {
-  if (!n) return '—'
-  return `${m}${parseFloat(n).toLocaleString('es-PE', { minimumFractionDigits: 2 })}`
-}
-function fmtDate(iso) {
-  if (!iso) return '—'
-  const [y, m, d] = iso.split('-')
-  return `${d}/${m}/${y}`
-}
+import { fmtMoney, fmtDate } from '../../utils/format.js'
 
 const REPORT_TYPES = {
   bcrp_adelantado: {
@@ -59,9 +50,19 @@ export default function ReportesRegulatoriosPage({ activeTab, ops = [], tcSbsHis
         }
         return ['liquidada', 'cerrada'].includes(o.estado)
       })
-      setPreviewData(filtered.map(o => ({ ...o, _adj: 0 })))
-      const totalUSD = filtered.reduce((acc, o) => acc + o.montoUSD, 0)
-      setAggregates({ totalUSD, count: filtered.length })
+      // Cruzadas generan 2 registros BCRP (compra + venta simultáneos)
+      const rows = []
+      for (const o of filtered) {
+        if (o.tipo === 'cruzada') {
+          rows.push({ ...o, _adj: 0, _bcrpTipo: 'compra', id: o.id + '-C' })
+          rows.push({ ...o, _adj: 0, _bcrpTipo: 'venta',  id: o.id + '-V' })
+        } else {
+          rows.push({ ...o, _adj: 0, _bcrpTipo: o.tipo })
+        }
+      }
+      setPreviewData(rows)
+      const totalUSD = filtered.reduce((acc, o) => acc + (o.montoUSD ?? 0), 0)
+      setAggregates({ totalUSD, count: rows.length })
       setLoading(false)
       setStep('preview')
     }, 1000)
@@ -234,7 +235,7 @@ export default function ReportesRegulatoriosPage({ activeTab, ops = [], tcSbsHis
               <div className="flex items-center gap-4">
                 <div className="text-right">
                   <p className="text-[11px] text-gray-400">Monto Total USD</p>
-                  <p className="text-lg font-bold font-mono text-blue-600">{fmtMoney(aggregates.totalUSD, '$ ')}</p>
+                  <p className="text-lg font-bold font-mono text-blue-600">{'$ ' + fmtMoney(aggregates.totalUSD)}</p>
                 </div>
                 {feedback?.type === 'success' ? (
                   <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-50 text-green-700 text-xs font-semibold" style={{ border: '1px solid #bbf7d0' }}>
@@ -273,11 +274,14 @@ export default function ReportesRegulatoriosPage({ activeTab, ops = [], tcSbsHis
                     <tr key={o.id} className="border-b hover:bg-gray-50/60 transition-colors" style={{ borderColor: 'var(--color-border)' }}>
                       <td className="px-4 py-3 text-xs font-mono font-bold text-gray-800">{o.id}</td>
                       <td className="px-4 py-3 text-xs">
-                        <span className={clsx('font-bold', o.tipo === 'compra' ? 'text-blue-600' : 'text-orange-600')}>
-                          {o.tipo?.toUpperCase()}
+                        <span className={clsx('font-bold', o._bcrpTipo === 'compra' ? 'text-blue-600' : 'text-orange-600')}>
+                          {o._bcrpTipo?.toUpperCase()}
                         </span>
+                        {o.tipo === 'cruzada' && (
+                          <span className="ml-1 text-purple-500 font-normal text-[10px]">(cruzada)</span>
+                        )}
                       </td>
-                      <td className="px-4 py-3 text-xs font-mono text-gray-700">{fmtMoney(o.montoUSD, '$ ')}</td>
+                      <td className="px-4 py-3 text-xs font-mono text-gray-700">{'$ ' + fmtMoney(o.montoUSD)}</td>
                       <td className="px-4 py-3 text-xs font-mono font-bold text-gray-800">{o.tc?.toFixed(3)}</td>
                       <td className="px-4 py-3 text-xs font-mono text-gray-500">
                         {isDefinitivo ? currentTcSbs?.tMinus1?.toFixed(3) : currentTcSbs?.t?.toFixed(3) || '—'}
@@ -319,3 +323,4 @@ export default function ReportesRegulatoriosPage({ activeTab, ops = [], tcSbsHis
     </div>
   )
 }
+

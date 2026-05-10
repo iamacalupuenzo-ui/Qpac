@@ -1,10 +1,11 @@
-import { useState, useMemo, useEffect } from 'react'
+﻿import { useState, useMemo, useEffect } from 'react'
 import {
   Plus, Save, AlertTriangle, Info, CheckCircle2, Clock,
   Edit3, RefreshCw, TrendingDown, TrendingUp, DollarSign,
 } from 'lucide-react'
 import clsx from 'clsx'
 import AjusteContableDrawer from './AjusteContableDrawer'
+import { fmtMoney, fmtDateTime } from '../../utils/format.js'
 
 const TC_SBS_AYER = 3.738
 
@@ -23,15 +24,6 @@ const CUENTAS_QAPAQ_MOCK = [
 /* ══════════════════════════════════════════════
    HELPERS
 ══════════════════════════════════════════════ */
-function fmtMoney(n, dec = 2) {
-  if (n === undefined || n === null) return '—'
-  return parseFloat(n).toLocaleString('es-PE', { minimumFractionDigits: dec, maximumFractionDigits: dec })
-}
-
-function fmtDateTime() {
-  return new Date().toLocaleString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-}
-
 function semaforo(disponible, limiteAlerta, limiteCritico) {
   if (limiteAlerta === undefined) return 'sin_config'
   if (disponible < limiteCritico) return 'rojo'
@@ -375,8 +367,8 @@ export default function SaldosBancariosPage({ ops = [], marketData, tcSbs, ajust
         {[
           { label: 'Cuentas activas',    value: CUENTAS_QAPAQ_MOCK.length,                          sub: 'en catálogo', color: 'gray'  },
           { label: 'Con bolsa inicial',  value: Object.keys(bolsas).length,                          sub: 'registradas hoy', color: 'blue'  },
-          { label: 'En alerta (🟡)',     value: CUENTAS_QAPAQ_MOCK.filter(c => { const b = bolsas[c.id]; if (!b) return false; const { ingresos, salidas } = calcMovimientos(ops, c.id, c.moneda); const d = b+ingresos-salidas; return d < c.limiteAlerta && d >= c.limiteCritico }).length, sub: 'amarillo', color: 'amber' },
-          { label: 'Críticas (🔴)',      value: alertas.length,                                       sub: 'rojo · atención inmediata', color: 'red'   },
+          { label: 'En alerta (ðŸŸ¡)',     value: CUENTAS_QAPAQ_MOCK.filter(c => { const b = bolsas[c.id]; if (!b) return false; const { ingresos, salidas } = calcMovimientos(ops, c.id, c.moneda); const d = b+ingresos-salidas; return d < c.limiteAlerta && d >= c.limiteCritico }).length, sub: 'amarillo', color: 'amber' },
+          { label: 'Críticas (ðŸ”´)',      value: alertas.length,                                       sub: 'rojo · atención inmediata', color: 'red'   },
         ].map(({ label, value, sub, color }) => (
           <div key={label} className="bg-white rounded-lg px-4 py-3.5" style={{ border: '1px solid var(--color-border)' }}>
             <p className="text-xs text-gray-400 mb-1">{label}</p>
@@ -579,3 +571,4 @@ export default function SaldosBancariosPage({ ops = [], marketData, tcSbs, ajust
     </div>
   )
 }
+

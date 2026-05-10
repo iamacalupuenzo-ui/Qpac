@@ -1,16 +1,12 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import {
   Calendar, CheckCircle2, AlertCircle,
   FileSpreadsheet, ShieldCheck, Clock,
   Save, Info,
 } from 'lucide-react'
 import clsx from 'clsx'
+import { fmtDate } from '../../utils/format.js'
 
-function fmtDate(iso) {
-  if (!iso) return '—'
-  const [y, m, d] = iso.split('-')
-  return `${d}/${m}/${y}`
-}
 
 export default function ConciliacionPage({ role }) {
   const [fecha,      setFecha]      = useState('2026-04-23')
@@ -334,3 +330,4 @@ export default function ConciliacionPage({ role }) {
     </div>
   )
 }
+

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import {
   ArrowLeft, Check, ChevronRight,
   Eye, FileText, CheckCircle2, XCircle,
@@ -6,6 +6,7 @@ import {
   MessageSquare, Banknote, RefreshCw,
 } from 'lucide-react'
 import clsx from 'clsx'
+import { fmtMoney, fmtDate } from '../../utils/format.js'
 
 /* ══════════════════════════════════════════════
    CATÁLOGOS DE LOOKUP
@@ -50,15 +51,6 @@ const CAUSAS_OBSERVACION = [
 /* ══════════════════════════════════════════════
    HELPERS
 ══════════════════════════════════════════════ */
-function fmtMoney(n, m = '') {
-  if (!n) return '—'
-  return `${m} ${parseFloat(n).toLocaleString('es-PE', { minimumFractionDigits: 2 })}`
-}
-function fmtDate(iso) {
-  if (!iso) return '—'
-  const [y, m, d] = iso.split('-')
-  return `${d}/${m}/${y}`
-}
 
 /* ══════════════════════════════════════════════
    STEPS — 4 pasos cuando se aprueba (RF-15)
@@ -156,9 +148,9 @@ function Step1({ op, onPreviewDoc }) {
             { l: 'Cliente',    v: op.clienteNombre                           },
             { l: 'Fecha',      v: fmtDate(op.fecha)                          },
             { l: 'Tipo',       v: op.tipo?.toUpperCase()                     },
-            { l: 'Monto USD',  v: fmtMoney(op.montoUSD, '$')                 },
+            { l: 'Monto USD',  v: '$ ' + fmtMoney(op.montoUSD)                 },
             { l: 'TC pactado', v: op.tc?.toFixed(3),              mono: true },
-            { l: 'Monto PEN',  v: fmtMoney(op.montoPEN ?? (op.montoUSD && op.tc ? op.montoUSD * op.tc : null), 'S/') },
+            { l: 'Monto PEN',  v: 'S/ ' + fmtMoney(op.montoPEN ?? (op.montoUSD && op.tc ? op.montoUSD * op.tc : null)) },
           ].map(({ l, v, mono }) => (
             <div key={l} className="p-3 rounded-lg border border-gray-100 bg-gray-50">
               <p className="text-[10px] text-gray-400 mb-0.5">{l}</p>
@@ -176,7 +168,8 @@ function Step1({ op, onPreviewDoc }) {
           <div className="p-3 rounded-lg border border-gray-100 bg-gray-50 space-y-1">
             <p className="text-[10px] text-gray-400">Cuenta(s) de ingreso</p>
             {(() => {
-              const ids = (op.cuentasQpaqIngreso ?? []).filter(Boolean)
+              const raw = op.cuentasQpaqIngreso ?? []
+              const ids = raw.map(r => typeof r === 'string' ? r : r.cuentaId).filter(Boolean)
               if (ids.length === 0 && op.cuentaQpaqIn) ids.push(op.cuentaQpaqIn)
               return ids.length > 0
                 ? ids.map((id, i) => (
@@ -189,7 +182,8 @@ function Step1({ op, onPreviewDoc }) {
           <div className="p-3 rounded-lg border border-gray-100 bg-gray-50 space-y-1">
             <p className="text-[10px] text-gray-400">Cuenta(s) de egreso</p>
             {(() => {
-              const ids = (op.cuentasQpaqEgreso ?? []).filter(Boolean)
+              const raw = op.cuentasQpaqEgreso ?? []
+              const ids = raw.map(r => typeof r === 'string' ? r : r.cuentaId).filter(Boolean)
               if (ids.length === 0 && op.cuentaQpaqOut) ids.push(op.cuentaQpaqOut)
               return ids.length > 0
                 ? ids.map((id, i) => (
@@ -441,7 +435,7 @@ function Step3({ op, decision, causas, observacion }) {
         {[
           { l: 'Operación', v: op.id,                        mono: true  },
           { l: 'Cliente',   v: op.clienteNombre                          },
-          { l: 'Monto USD', v: fmtMoney(op.montoUSD, '$') + ' USD'      },
+          { l: 'Monto USD', v: '$ ' + fmtMoney(op.montoUSD) + ' USD'      },
           { l: 'TC',        v: op.tc?.toFixed(3),            mono: true  },
         ].map(({ l, v, mono }) => (
           <div key={l} className="p-3 rounded-lg border border-gray-100 bg-gray-50">
@@ -553,10 +547,10 @@ function Step4({ op, refTransferencia, setRefTransferencia, fechaLiquidacion, er
           {[
             { l: 'Operación',    v: op.id,                             mono: true },
             { l: 'Cliente',      v: op.clienteNombre                             },
-            { l: 'Monto USD',    v: fmtMoney(op.montoUSD, '$')                   },
+            { l: 'Monto USD',    v: '$ ' + fmtMoney(op.montoUSD)                   },
             { l: 'TC liquidado', v: op.tc?.toFixed(3),                 mono: true },
-            { l: 'Cuenta ingreso', v: (() => { const id = ((op.cuentasQpaqIngreso ?? []).find(Boolean)) ?? op.cuentaQpaqIn; return QAPAQ_DISPLAY[id] ?? id ?? '—' })() },
-            { l: 'Cuenta egreso',  v: (() => { const id = ((op.cuentasQpaqEgreso  ?? []).find(Boolean)) ?? op.cuentaQpaqOut; return QAPAQ_DISPLAY[id] ?? id ?? '—' })() },
+            { l: 'Cuenta ingreso', v: (() => { const raw = op.cuentasQpaqIngreso ?? []; const id = raw.map(r => typeof r === 'string' ? r : r.cuentaId).find(Boolean) ?? op.cuentaQpaqIn; return QAPAQ_DISPLAY[id] ?? id ?? '—' })() },
+            { l: 'Cuenta egreso',  v: (() => { const raw = op.cuentasQpaqEgreso  ?? []; const id = raw.map(r => typeof r === 'string' ? r : r.cuentaId).find(Boolean) ?? op.cuentaQpaqOut; return QAPAQ_DISPLAY[id] ?? id ?? '—' })() },
           ].map(({ l, v, mono }) => (
             <div key={l}>
               <p className="text-[11px] text-gray-400 mb-0.5">{l}</p>
@@ -798,3 +792,4 @@ export default function RevisionBackOfficeWizard({ op, onBack, onLiquidar, onObs
     </div>
   )
 }
+

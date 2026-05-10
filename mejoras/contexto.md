@@ -1,7 +1,7 @@
 # Contexto del Proyecto — QPaC / QAPAQ FX
 
 > Documentación técnica completa para análisis y modificación del proyecto
-> Actualizado: 2026-05-07
+> Actualizado: 2026-05-07 — v2 (operaciones cruzadas + formateo numérico centralizado)
 
 ---
 
@@ -57,6 +57,9 @@ Qpac/
 │   ├── main.jsx                      # Punto de entrada React
 │   ├── index.css                     # Estilos globales + TailwindCSS + tokens QAPAQ
 │   ├── App.jsx                       # Orquestador principal (678 líneas)
+│   │
+│   ├── utils/
+│   │   └── format.js                 # Utilidades centralizadas: fmtMoney, parseMoney
 │   │
 │   ├── assets/
 │   │   ├── vite.svg
@@ -217,8 +220,15 @@ const [inWizard, setInWizard] = useState(false);
 Estados de operación: `reservado`, `pendiente_abono`, `en_revision_bo`, `observado`, `subsanado`, `liquidado`, `anulado`.
 
 **`CotizacionWizard.jsx` (4 pasos):** Cliente → Operación (monto, TC, spread) → Cuentas → Confirmación
-- Cálculo automático: `montoPEN = montoUSD * tc`
-- Cálculo de spread: `(tcPunta - tcPactado) * 10000`
+- Tipos de operación: **Compra**, **Venta**, **Cruzada** (soles o dólares)
+- Compra: `montoPEN = montoUSD × tcPactado`
+- Venta: `montoUSD = montoPEN / tcPactado`
+- Cruzada: `contravalor = monto × min(tcPactado, tcPunta) / max(tcPactado, tcPunta)` — genera 2 registros BCRP
+- Spread compra: `tcPunta − tcPactado`; Venta: `tcPactado − tcPunta`; Cruzada: `|tcPactado − tcPunta|`
+- Fuente TC: Datatec (auto-fill) o Manual; auto-fill usa compra para cruzada soles, venta para cruzada dólares
+- Inputs de monto usan `type="text"` con **format-on-blur** (`fmtMoney`) y strip-on-focus
+- Inputs TC usan `type="text"` con `inputMode="decimal"` y reemplazo `,` → `.`
+- Todos los `parseFloat` sobre montos usan `parseMoney()` de `utils/format.js`
 
 **`RevisionBackOfficeWizard.jsx` (4 pasos):** Revisión → Decisión → Confirmación → Liquidación
 - Causas de observación configurables (comprobante ilegible, monto不一致, cuenta incorrecta, etc.)
@@ -226,6 +236,8 @@ Estados de operación: `reservado`, `pendiente_abono`, `en_revision_bo`, `observ
 **`ConfirmarAbonoWizard.jsx` (3 pasos):** Verificación montos → Documentación → Confirmación
 - Cuentas destino con flag `_preset` (solo lectura vs editable)
 - Carga de archivos (hasta 10)
+- Monto pre-cargado con formato `fmtMoney` (ej. `100,000.00`)
+- Input monto usa `type="text"` con format-on-blur; TC usa `type="text"` con `,` → `.`
 
 ### 4.4 Módulo de Clientes
 
@@ -277,14 +289,24 @@ Estados de operación: `reservado`, `pendiente_abono`, `en_revision_bo`, `observ
 ## 5. Roles de Usuario
 
 Los roles definen qué páginas y acciones están disponibles. Se seleccionan en el login mock.
+Ver `usuarios.md` para credenciales y detalle de permisos por módulo.
 
-| Rol | ID | Acceso |
-|-----|----|--------|
-| Administrador | `admin` | Dashboard admin + Users + Roles + Mesas + Catálogos + Parámetros |
-| Trader | `trader` | Operaciones (cotizar, bandeja) + Clientes |
-| Mesa de Dinero / Middle Office | `middle` | Operaciones (bandeja) + Tesorería (posiciones, mercado TC) |
-| Back Office | `back` | Operaciones (revisión BO, liquidación) + Reportes |
-| Tesorería | `tesoreria` | Tesorería (todo) + Reportes regulatorios |
+| Rol | ID | Sidebar | Acceso principal |
+|-----|----|---------|------------------|
+| Administrador | `admin` | admin | Todo el sistema — configuración y administración |
+| Trader | `trader` | default | Front Office — cotizar, bandeja, clientes |
+| Middle Office | `middle` | default | Gestión de clientes M0, operaciones (bandeja) |
+| Back Office | `back` | default | Validación y liquidación de operaciones |
+| Head de Mesa | `head` | default | Supervisión M0, M1, M3 |
+| Jefe de Op. Centrales | `jefe_op` | default | M2, M3, M4 — cierre diario |
+| Tesorería y Posición | `tesoreria` | tesoreria | Posición FX, cierre, reportes |
+| Contabilidad | `contab` | default | Posición FX — trama contable |
+| Jefe de Tesorería | `head_tes` | default | Acceso amplio M0–M6 |
+| Gerente de Finanzas | `gerente` | default | Dashboards gerenciales, reportes |
+| Riesgos | `riesgos` | default | M3, reportes regulatorios |
+| Oficial Cumpl. PLAFT | `plaft` | default | M0 PLAFT, reportes operativos |
+| Reporte Regulatorio | `reportes` | default | M5, reportes operativos |
+| Seguridad Información | `seguridad` | default | Solo lectura — logs y auditoría |
 
 ---
 
@@ -295,15 +317,11 @@ Los roles definen qué páginas y acciones están disponibles. Se seleccionan en
 | Operaciones | 8 | Diferentes estados: reservado, observado, revisión, liquidado, anulado |
 | Clientes | 8 | Tipos: PN, P10, PJ, EF. Estados: activo, activo_proceso, pendiente_legal, no_habilitado |
 | Auditoría | 30 | Registros con diferentes módulos, roles y resultados |
-| Usuarios | 6 | admin, trader1, trader2, middle, back, tesoreria |
+| Usuarios login | 14 | admin, trader, middle, back, head, jefe_op, tesoreria, contab, head_tes, gerente, riesgos, plaft, reportes, seguridad |
+| Usuarios sistema | 9 | 9 usuarios con roles distintos en UsersPage |
 | Mesas de dinero | 3 | Cada una con jefe y traders asignados |
 
-**Credenciales de login (mock):**
-- admin / admin123
-- trader1 / trader123 / trader2 / trader123
-- middle / middle123
-- back / back123
-- tesoreria / tesoreria123
+**Credenciales de login (mock):** Ver `usuarios.md` para lista completa.
 
 ---
 
@@ -375,6 +393,7 @@ Los roles definen qué páginas y acciones están disponibles. Se seleccionan en
 | Agregar/mover sidebar item | `src/components/layout/Sidebar.jsx` |
 | Modificar header/market strip | `src/components/layout/Header.jsx` |
 | Cambiar estilos globales/tokens | `src/index.css` |
+| Formateo/parseo de montos | `src/utils/format.js` |
 | Decisiones de producto/UX | `definicion.md` |
 
 ---

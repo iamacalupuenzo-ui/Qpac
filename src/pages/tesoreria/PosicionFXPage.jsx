@@ -1,10 +1,11 @@
-import { useState, useMemo, useEffect, useRef } from 'react'
+﻿import { useState, useMemo, useEffect, useRef } from 'react'
 import {
   TrendingUp, TrendingDown, Minus, RefreshCw, ChevronDown, ChevronRight,
   AlertTriangle, Clock, DollarSign, ArrowDownLeft, ArrowUpRight, Info,
 } from 'lucide-react'
 import clsx from 'clsx'
 import SaldosBancariosPage from './SaldosBancariosPage'
+import { fmtMoney } from '../../utils/format.js'
 
 const TC_SBS_AYER = 3.738
 
@@ -34,17 +35,15 @@ const JERARQUIA = {
 /* ══════════════════════════════════════════════
    HELPERS
 ══════════════════════════════════════════════ */
-function fmtMoney(n, dec = 2) {
-  if (!n && n !== 0) return '—'
-  return parseFloat(n).toLocaleString('es-PE', { minimumFractionDigits: dec, maximumFractionDigits: dec })
-}
 
 function calcPosicion(ops, filtroMoneda = 'USD') {
   const activas = ops.filter(o => ESTADOS_ACTIVOS.has(o.estado))
   // Compras desde perspectiva QAPAQ: cliente vende divisas → QAPAQ recibe USD
   // Ventas desde perspectiva QAPAQ: cliente compra divisas → QAPAQ entrega USD
+  // Cruzadas: operación interna entre bancos — no genera posición FX neta
   let compras = 0, ventas = 0
   for (const op of activas) {
+    if (op.tipo === 'cruzada') continue
     if (op.tipo === 'compra') compras += op.montoUSD   // QAPAQ recibe USD del cliente
     else                      ventas  += op.montoUSD   // QAPAQ entrega USD al cliente
   }
@@ -58,7 +57,10 @@ function calcPorMesa(ops) {
     for (const t of traders) {
       const tOps = ops.filter(o => ESTADOS_ACTIVOS.has(o.estado) && o.trader === t)
       let c = 0, v = 0
-      for (const op of tOps) { op.tipo === 'compra' ? (c += op.montoUSD) : (v += op.montoUSD) }
+      for (const op of tOps) {
+        if (op.tipo === 'cruzada') continue
+        op.tipo === 'compra' ? (c += op.montoUSD) : (v += op.montoUSD)
+      }
       opsTrader[t] = { compras: c, ventas: v, neta: c - v, count: tOps.length }
     }
     const totC = Object.values(opsTrader).reduce((s, x) => s + x.compras, 0)
@@ -358,3 +360,4 @@ export default function PosicionFXPage({ activeTab = 'posicion_fx', ops = [], ma
     </div>
   )
 }
+

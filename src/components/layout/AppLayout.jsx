@@ -17,11 +17,11 @@ export default function AppLayout({
   const handleTabChange = extTabChange !== undefined ? extTabChange : setIntTab
 
   return (
-    <div className="flex h-full min-h-screen">
+    <div className="flex h-screen overflow-hidden">
       <Sidebar activeItem={activeNav} onNavigate={handleNav} role={role} />
 
       <div
-        className="flex-1 flex flex-col min-h-screen"
+        className="flex-1 flex flex-col overflow-hidden min-w-0"
         style={{ marginLeft: 'var(--sidebar-w)' }}
       >
         <Header
@@ -37,7 +37,7 @@ export default function AppLayout({
         />
 
         <main
-          className="flex-1 p-6"
+          className="flex-1 overflow-y-auto overflow-x-hidden p-6"
           style={{ background: 'var(--color-surface-bg)' }}
         >
           {children}
