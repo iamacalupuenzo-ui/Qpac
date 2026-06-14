@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import clsx from 'clsx'
 import { fmtMoney, parseMoney } from '../../utils/format.js'
+import OpSummaryBar from '../../components/ui/OpSummaryBar.jsx'
 
 const CUENTAS_QAPAQ = {
   USD: [
@@ -73,6 +74,7 @@ const CUENTAS_DISPLAY = {
   'CTA-070': 'BCP · 191-7000001-0-33 (USD)',
   'CTA-071': 'BBVA · 0011-0777-77-0100077001 (PEN)',
   transitoria: 'Cuenta transitoria QAPAQ',
+  PENDIENTE: 'Cuenta por definir (pendiente)',
 }
 
 const QAPAQ_DISPLAY = {
@@ -80,6 +82,7 @@ const QAPAQ_DISPLAY = {
   'QP-USD-2': 'Interbank · 200-9000002-001 (USD)',
   'QP-PEN-1': 'BCP · 191-9000003-0-01 (PEN)',
   'QP-PEN-2': 'Scotiabank · 00-272-9000004 (PEN)',
+  PENDIENTE: 'Cuenta por definir (pendiente)',
 }
 
 const STEPS = [
@@ -89,6 +92,10 @@ const STEPS = [
 ]
 
 const MAX_FILES = 10
+
+/* Cuenta pendiente transversal (cliente / egreso / ingreso) */
+const CUENTA_PENDIENTE_ID = 'PENDIENTE'
+const PENDIENTE_OPT = { value: CUENTA_PENDIENTE_ID, label: 'Cuenta por definir (pendiente)' }
 
 function StepIndicator({ currentStep }) {
   return (
@@ -226,15 +233,15 @@ function Step2({ op, qpaqEgreso, setQpaqEgreso, qpaqIngreso, setQpaqIngreso,
                  files, setFiles, errors, onPreviewDoc }) {
   const fileInputRef = useRef(null)
 
-  const monedaEgreso  = op.tipo === 'compra' ? 'USD' : 'PEN'
-  const monedaIngreso = op.tipo === 'compra' ? 'PEN' : 'USD'
+  const monedaEgreso  = op.tipo === 'compra' ? 'PEN' : 'USD'
+  const monedaIngreso = op.tipo === 'compra' ? 'USD' : 'PEN'
   const monedaAbono   = op.tipo === 'compra' ? 'PEN' : 'USD'
 
   const todasCuentasCli = CUENTAS_CLIENTE[op.clienteId] ?? []
   const cuentasCli = todasCuentasCli.filter(c => c.moneda === monedaAbono)
 
-  const optsEgreso  = (CUENTAS_QAPAQ[monedaEgreso]  || []).map(c => ({ value: c.id, label: `${c.banco} · ${c.numero} (${c.moneda})` }))
-  const optsIngreso = (CUENTAS_QAPAQ[monedaIngreso] || []).map(c => ({ value: c.id, label: `${c.banco} · ${c.numero} (${c.moneda})` }))
+  const optsEgreso  = [...(CUENTAS_QAPAQ[monedaEgreso]  || []).map(c => ({ value: c.id, label: `${c.banco} · ${c.numero} (${c.moneda})` })), PENDIENTE_OPT]
+  const optsIngreso = [...(CUENTAS_QAPAQ[monedaIngreso] || []).map(c => ({ value: c.id, label: `${c.banco} · ${c.numero} (${c.moneda})` })), PENDIENTE_OPT]
 
   const selectCls = (err) => clsx(
     'w-full px-3 py-2.5 rounded-lg border text-sm bg-white outline-none transition-all',
@@ -402,22 +409,24 @@ function Step2({ op, qpaqEgreso, setQpaqEgreso, qpaqIngreso, setQpaqIngreso,
                           <span className="text-gray-500">{row.cuentaId}</span>
                         )}
                       </div>
-                    ) : cuentasCli.length > 0 ? (
-                      <select
-                        value={row.cuentaId}
-                        onChange={e => updateCuentaDest(idx, 'cuentaId', e.target.value)}
-                        className={selectCls(false)}>
-                        <option value="">Seleccionar cuenta…</option>
-                        {cuentasCli.map(c => (
-                          <option key={c.id} value={c.id}>
-                            {c.banco} · {c.numero} ({c.moneda}){c.tipo === 'tercero' ? ' — Tercero' : ''}
-                          </option>
-                        ))}
-                      </select>
                     ) : (
-                      <div className="w-full px-3 py-2.5 rounded-lg border border-amber-200 bg-amber-50 text-xs text-amber-700">
-                        Sin cuentas registradas en {monedaAbono} para este cliente
-                      </div>
+                      <>
+                        <select
+                          value={row.cuentaId}
+                          onChange={e => updateCuentaDest(idx, 'cuentaId', e.target.value)}
+                          className={selectCls(false)}>
+                          <option value="">Seleccionar cuenta…</option>
+                          {cuentasCli.map(c => (
+                            <option key={c.id} value={c.id}>
+                              {c.banco} · {c.numero} ({c.moneda}){c.tipo === 'tercero' ? ' — Tercero' : ''}
+                            </option>
+                          ))}
+                          <option value={CUENTA_PENDIENTE_ID}>Cuenta por definir (pendiente)</option>
+                        </select>
+                        {cuentasCli.length === 0 && (
+                          <p className="text-[11px] text-amber-600 mt-1">Sin cuentas en {monedaAbono} para este cliente; puedes dejarla como pendiente.</p>
+                        )}
+                      </>
                     )}
                   </Field>
                   <Field label={`Monto (${monedaAbono})`}>
@@ -506,8 +515,8 @@ function Step2({ op, qpaqEgreso, setQpaqEgreso, qpaqIngreso, setQpaqIngreso,
 }
 
 function Step3({ op, monto, tc, qpaqEgreso, qpaqIngreso, cuentasDestCliente, files, onConfirmar, loading }) {
-  const monedaEgreso  = op.tipo === 'compra' ? 'USD' : 'PEN'
-  const monedaIngreso = op.tipo === 'compra' ? 'PEN' : 'USD'
+  const monedaEgreso  = op.tipo === 'compra' ? 'PEN' : 'USD'
+  const monedaIngreso = op.tipo === 'compra' ? 'USD' : 'PEN'
   const monedaAbono   = op.tipo === 'compra' ? 'PEN' : 'USD'
 
   const montoN = parseMoney(monto)
@@ -541,7 +550,7 @@ function Step3({ op, monto, tc, qpaqEgreso, qpaqIngreso, cuentasDestCliente, fil
             {qpaqEgreso.filter(r => r.cuentaId).map((row, idx) => (
               <div key={idx} className="flex items-center justify-between gap-4 py-1.5">
                 <p className="text-xs text-gray-600">{QAPAQ_DISPLAY[row.cuentaId] ?? row.cuentaId}</p>
-                <p className="text-sm font-mono text-gray-700">{row.monto ? `${monedaEgreso} ${fmtMoney(+row.monto)}` : '—'}</p>
+                <p className="text-sm font-mono text-gray-700">{row.monto ? `${monedaEgreso} ${fmtMoney(row.monto)}` : '—'}</p>
               </div>
             ))}
           </div>
@@ -550,7 +559,7 @@ function Step3({ op, monto, tc, qpaqEgreso, qpaqIngreso, cuentasDestCliente, fil
             {qpaqIngreso.filter(r => r.cuentaId).map((row, idx) => (
               <div key={idx} className="flex items-center justify-between gap-4 py-1.5">
                 <p className="text-xs text-gray-600">{QAPAQ_DISPLAY[row.cuentaId] ?? row.cuentaId}</p>
-                <p className="text-sm font-mono text-gray-700">{row.monto ? `${monedaIngreso} ${fmtMoney(+row.monto)}` : '—'}</p>
+                <p className="text-sm font-mono text-gray-700">{row.monto ? `${monedaIngreso} ${fmtMoney(row.monto)}` : '—'}</p>
               </div>
             ))}
           </div>
@@ -602,32 +611,47 @@ export default function ConfirmarAbonoWizard({ op, onBack, onConfirmar, onPrevie
   const [errors,  setErrors]  = useState({})
   const [loading, setLoading] = useState(false)
 
-  function parseQpaqArr(raw, fallback) {
-    if (!raw || raw.length === 0) return fallback
-    return raw.map(r => {
-      if (typeof r === 'string') return { cuentaId: r, monto: '' }
-      const m = r.monto
-      return { cuentaId: r.cuentaId || '', monto: m && !isNaN(parseMoney(m)) ? fmtMoney(parseMoney(m)) : '' }
-    })
+  // Totales por lado, derivados de la operación (cálculo preciso)
+  const isCompra   = op?.tipo === 'compra'
+  const tcNum      = parseFloat(op?.tc) || 0
+  const montoUSDn  = op?.montoUSD ?? 0
+  const montoPENn  = op?.montoPEN ?? (montoUSDn && tcNum ? Math.round(montoUSDn * tcNum * 100) / 100 : 0)
+  const totalEgreso  = isCompra ? montoPENn : montoUSDn   // egreso: compra→PEN(soles), venta→USD
+  const totalIngreso = isCompra ? montoUSDn : montoPENn   // ingreso: compra→USD, venta→PEN
+  const totalAbono   = isCompra ? montoPENn : montoUSDn   // cliente recibe: compra→PEN, venta→USD
+
+  // Normaliza filas QAPAQ y precarga el monto de la primera cuenta con el total del lado
+  function parseQpaqArr(raw, fallback, total) {
+    const base = (!raw || raw.length === 0)
+      ? fallback
+      : raw.map(r => {
+          if (typeof r === 'string') return { cuentaId: r, monto: '' }
+          const m = r.monto
+          return { cuentaId: r.cuentaId || '', monto: m && !isNaN(parseMoney(m)) ? fmtMoney(parseMoney(m)) : '' }
+        })
+    if (total != null && total > 0 && base[0] && base[0].monto === '') {
+      return base.map((r, i) => i === 0 ? { ...r, monto: fmtMoney(total) } : r)
+    }
+    return base
   }
 
   const [monto,   setMonto]   = useState(op?.montoUSD ? fmtMoney(op.montoUSD) : '')
   const [tc,      setTc]      = useState(String(op?.tc ?? ''))
 
   const [qpaqEgreso, setQpaqEgreso] = useState(
-    parseQpaqArr(op?.cuentasQpaqEgreso, [{ cuentaId: op?.cuentaQpaqOut || '', monto: '' }])
+    parseQpaqArr(op?.cuentasQpaqEgreso, [{ cuentaId: op?.cuentaQpaqOut || '', monto: '' }], totalEgreso)
   )
   const [qpaqIngreso, setQpaqIngreso] = useState(
-    parseQpaqArr(op?.cuentasQpaqIngreso, [{ cuentaId: op?.cuentaQpaqIn || '', monto: '' }])
+    parseQpaqArr(op?.cuentasQpaqIngreso, [{ cuentaId: op?.cuentaQpaqIn || '', monto: '' }], totalIngreso)
   )
   const [cuentasDestCliente, setCuentasDestCliente] = useState(() => {
     if (op?.cuentasDest?.length) {
       return op.cuentasDest.map(r => {
         const m = r.monto
-        return { ...r, monto: m && !isNaN(parseMoney(m)) ? fmtMoney(parseMoney(m)) : '', _preset: !!r.cuentaId }
+        return { ...r, monto: m && !isNaN(parseMoney(m)) ? fmtMoney(parseMoney(m)) : '', _preset: !!r.cuentaId && r.cuentaId !== CUENTA_PENDIENTE_ID }
       })
     }
-    return [{ cuentaId: '', monto: '', _preset: false }]
+    return [{ cuentaId: '', monto: totalAbono > 0 ? fmtMoney(totalAbono) : '', _preset: false }]
   })
   const [files, setFiles] = useState([])
 
@@ -689,6 +713,17 @@ export default function ConfirmarAbonoWizard({ op, onBack, onConfirmar, onPrevie
       <div className="bg-white rounded-2xl border border-gray-100 px-6 py-5 mb-6 shadow-sm">
         <StepIndicator currentStep={step} />
       </div>
+
+      {/* Datos registrados de la operación — visibles en todas las pantallas del flujo */}
+      <OpSummaryBar
+        id={op.id}
+        cliente={op.clienteNombre}
+        tipo={op.tipo}
+        monedaCruzada={op.monedaCruzada}
+        monto={monto}
+        moneda="USD"
+        tc={tc}
+      />
 
       <div className="bg-white rounded-2xl border border-gray-100 p-8 shadow-sm mb-6">
         <div className="mb-4">

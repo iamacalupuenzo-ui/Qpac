@@ -242,6 +242,17 @@ function FilaCuenta({ cuenta, bolsa, ops, tcSbs, ajustes, role, onBolsaAction })
         )}
       </td>
 
+      {/* Flujos — informa si la cuenta tiene movimientos registrados */}
+      <td className="px-4 py-3">
+        {(ingresos > 0 || salidas > 0) ? (
+          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-green-50 border-green-200 text-green-700">Con flujos</span>
+        ) : sinBolsa ? (
+          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-amber-50 border-amber-200 text-amber-700">Flujos por definir</span>
+        ) : (
+          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-gray-100 border-gray-200 text-gray-500">Sin flujos</span>
+        )}
+      </td>
+
       {/* Estado semáforo */}
       <td className="px-4 py-3">
         <span className={clsx('text-[10px] font-semibold px-2 py-0.5 rounded-full border', sc.badge, sc.txt)}>
@@ -441,6 +452,7 @@ export default function SaldosBancariosPage({ ops = [], marketData, tcSbs, ajust
                 <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 text-right">− Salidas</th>
                 <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 text-right">Disponible neto</th>
                 <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 text-right">Equiv. PEN</th>
+                <th className="px-4 py-2.5 text-xs font-semibold text-gray-500">Flujos</th>
                 <th className="px-4 py-2.5 text-xs font-semibold text-gray-500">Estado</th>
                 {esTesorer && <th className="px-4 py-2.5 text-xs font-semibold text-gray-500">Acción</th>}
               </tr>

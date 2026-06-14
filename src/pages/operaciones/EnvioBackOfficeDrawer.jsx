@@ -62,8 +62,8 @@ export default function EnvioBackOfficeDrawer({ open, op, onClose, onConfirmar }
 
   if (!open || !op) return null
 
-  const monedaIngreso = op.tipo === 'compra' ? 'PEN' : 'USD'
-  const monedaEgreso  = op.tipo === 'compra' ? 'USD' : 'PEN'
+  const monedaIngreso = op.tipo === 'compra' ? 'USD' : 'PEN'
+  const monedaEgreso  = op.tipo === 'compra' ? 'PEN' : 'USD'
   
   const optsIngreso = (CUENTAS_QAPAQ[monedaIngreso] || []).map(c => ({ 
     value: c.id, 

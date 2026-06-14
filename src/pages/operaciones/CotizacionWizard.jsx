@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import clsx from 'clsx'
 import { fmtMoney, parseMoney } from '../../utils/format.js'
+import OpSummaryBar from '../../components/ui/OpSummaryBar.jsx'
 
 /* ═══════════════════════════════════════════════
    STEPS
@@ -92,6 +93,29 @@ let _seq = 9
 function nextCorrelativo() { _seq++; return `OP-2026-${String(_seq).padStart(3, '0')}` }
 
 function todayStr() { return new Date().toISOString().split('T')[0] }
+
+/* Cuenta transitoria/pendiente — transversal a cliente, egreso e ingreso.
+   Siempre disponible en los desglosables; se usa cuando la cuenta aún no está definida. */
+const CUENTA_PENDIENTE_ID = 'PENDIENTE'
+const CUENTA_PENDIENTE_LABEL = 'Cuenta por definir (pendiente)'
+
+/* Etiqueta legible de una cuenta: "BCP · 191-9000001-0-01 (USD)" */
+function labelCuentaCliente(clienteId, ctaId) {
+  if (!ctaId) return '—'
+  if (ctaId === CUENTA_PENDIENTE_ID) return CUENTA_PENDIENTE_LABEL
+  const c = (CUENTAS_CLIENTE[clienteId] ?? []).find(x => x.id === ctaId)
+  return c ? `${c.banco} · ${c.numero} (${c.moneda})${c.tipo === 'tercero' ? ' — Tercero' : ''}` : ctaId
+}
+function labelCuentaQpaq(ctaId) {
+  if (!ctaId) return '—'
+  if (ctaId === CUENTA_PENDIENTE_ID) return CUENTA_PENDIENTE_LABEL
+  for (const arr of Object.values(CUENTAS_QAPAQ)) {
+    const c = arr.find(x => x.id === ctaId)
+    if (c) return `${c.banco} · ${c.numero} (${c.moneda})`
+  }
+  return ctaId
+}
+
 
 /* ═══════════════════════════════════════════════
    FORM ATOMS — mismo estilo que ClienteWizard
@@ -387,6 +411,30 @@ function Step2({ formData, onChange, errors, marketData, ops }) {
   const montoLabel    = isCruzada ? monedaCruz : tipoOp === 'compra' ? 'USD' : 'PEN'
   const contraLabel   = isCruzada ? monedaCruz : tipoOp === 'compra' ? 'PEN' : 'USD'
 
+  /* ── Esquema nuevo (solo COMPRA): Punta Trader (D), Spread (F) y Utilidad (E) ──
+     F.Spread  = (compra: D − B; venta: B − D) × 10,000     [B = TC pactado, D = Punta Trader]
+     E.Utilidad = F / 10,000 × A = (D − B) × A   (en PEN, para compra)
+     C.Monto PEN = A × B  (= contravalor)
+     Por ahora solo se aplica a compra; documentado para extender a venta/cruzada. */
+  const puntaTrader    = formData.puntaTrader ?? ''
+  const puntaTraderNum = parseFloat(puntaTrader)
+  const tieneSpreadIns = !isNaN(puntaTraderNum) && puntaTraderNum > 0 && !isNaN(tcPactadoNum) && tcPactadoNum > 0
+  // Spread en pips (puntos): compra D−B, venta B−D
+  const spreadPips = tieneSpreadIns
+    ? (tipoOp === 'compra' ? (puntaTraderNum - tcPactadoNum) : (tcPactadoNum - puntaTraderNum)) * 10000
+    : null
+  // Utilidad en PEN = spreadPips/10000 × monto USD
+  const utilidad = spreadPips !== null && !isNaN(montoNum) && montoNum > 0
+    ? (spreadPips / 10000) * montoNum
+    : null
+
+  // Punta Trader (dato duro) se precarga con el TC punta referencial; el trader puede ajustarlo
+  useEffect(() => {
+    if (tipoOp !== 'compra') return
+    if (formData.puntaTrader) return
+    if (tcPunta) onChange('puntaTrader', String(tcPunta))
+  }, [tipoOp, tcPunta]) // eslint-disable-line
+
   const todayIso      = new Date().toISOString().split('T')[0]
   const clienteNombre = formData.clienteResult?.nombre ?? ''
   const similar = (ops ?? []).filter(o =>
@@ -423,7 +471,7 @@ function Step2({ formData, onChange, errors, marketData, ops }) {
             const titleCl= color === 'emerald' ? 'text-emerald-900'                 : 'text-blue-900'
             return (
               <button key={value} type="button"
-                onClick={() => { onChange('tipoOp', value); onChange('tcPunta', ''); onChange('tcPactado', '') }}
+                onClick={() => { onChange('tipoOp', value); onChange('tcPunta', ''); onChange('tcPactado', ''); onChange('puntaTrader', '') }}
                 className={clsx('text-left p-4 rounded-xl border-2 transition-all',
                   sel ? active : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50')}>
                 <div className="flex items-start gap-3">
@@ -442,7 +490,7 @@ function Step2({ formData, onChange, errors, marketData, ops }) {
 
           {/* Cruzada — ocupa ambas columnas */}
           <button type="button"
-            onClick={() => { onChange('tipoOp', 'cruzada'); onChange('tcPunta', ''); onChange('tcPactado', ''); onChange('fuenteTC', 'datatec') }}
+            onClick={() => { onChange('tipoOp', 'cruzada'); onChange('tcPunta', ''); onChange('tcPactado', ''); onChange('puntaTrader', ''); onChange('fuenteTC', 'datatec') }}
             className={clsx('col-span-2 text-left p-4 rounded-xl border-2 transition-all',
               isCruzada ? 'border-purple-500 bg-purple-50' : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50')}>
             <div className="flex items-start gap-3">
@@ -500,6 +548,96 @@ function Step2({ formData, onChange, errors, marketData, ops }) {
             </div>
           )}
 
+          {tipoOp === 'compra' ? (
+            /* ── NUEVO ESQUEMA — COMPRA (orden A-H) ── */
+            <div className="grid grid-cols-2 gap-4">
+              {/* A. Monto USD */}
+              <Field label="A. Monto (USD)" required error={errors?.monto}>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400">USD</span>
+                  <input type="text" inputMode="numeric" placeholder="0.00"
+                    value={monto}
+                    onChange={e => onChange('monto', e.target.value.replace(/[^0-9.,]/g, ''))}
+                    onBlur={() => { const n = parseMoney(monto); if (!isNaN(n) && n > 0) onChange('monto', fmtMoney(n)) }}
+                    onFocus={() => onChange('monto', monto.replace(/,/g, ''))}
+                    className={clsx('w-full pl-12 pr-3 py-2.5 rounded-lg border text-sm text-right outline-none transition-all',
+                      errors?.monto ? 'border-red-400 ring-2 ring-red-50'
+                      : 'border-gray-200 hover:border-gray-300 focus:border-blue-400 focus:ring-2 focus:ring-blue-50')} />
+                </div>
+              </Field>
+
+              {/* B. TC pactado cliente */}
+              <Field label="B. TC pactado con el cliente" required error={errors?.tcPactado}>
+                <input type="text" inputMode="decimal" placeholder="0.0000"
+                  value={tcPactado}
+                  onChange={e => onChange('tcPactado', e.target.value.replace(',', '.'))}
+                  className={inputTC(!!errors?.tcPactado, false)} />
+              </Field>
+
+              {/* C. Monto PEN (calculado = A × B) */}
+              <Field label="C. Monto PEN" hint="Contravalor = Monto USD × TC pactado">
+                <div className="w-full px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm text-right font-mono text-gray-700">
+                  {contravalor !== null ? `PEN ${fmtMoney(contravalor)}` : '—'}
+                </div>
+              </Field>
+
+              {/* D. Punta Trader (dato duro) */}
+              <Field label="D. Punta Trader (dato duro)" required error={errors?.puntaTrader}
+                hint="TC de referencia del trader para calcular spread y utilidad">
+                <input type="text" inputMode="decimal" placeholder="0.0000"
+                  value={puntaTrader}
+                  onChange={e => onChange('puntaTrader', e.target.value.replace(',', '.'))}
+                  className={inputTC(!!errors?.puntaTrader, false)} />
+              </Field>
+
+              {/* E. Utilidad */}
+              <Field label="E. Utilidad estimada (PEN)" hint="(Punta Trader − TC pactado) × Monto USD">
+                <div className={clsx('w-full px-3 py-2.5 rounded-lg border bg-gray-50 text-sm text-right font-mono',
+                  utilidad !== null && utilidad < 0 ? 'border-red-200 text-red-600' : 'border-gray-200 text-gray-700')}>
+                  {utilidad !== null ? `PEN ${fmtMoney(utilidad)}` : '—'}
+                </div>
+              </Field>
+
+              {/* F. Spread */}
+              <Field label="F. Spread (pips)" hint="(Punta Trader − TC pactado) × 10,000">
+                <div className={clsx('w-full px-3 py-2.5 rounded-lg border bg-gray-50 text-sm text-right font-mono',
+                  spreadPips !== null && spreadPips < 0 ? 'border-red-200 text-red-600' : 'border-gray-200 text-gray-700')}>
+                  {spreadPips !== null ? spreadPips.toFixed(0) : '—'}
+                </div>
+              </Field>
+
+              {/* G. Fuente de tipo de cambio */}
+              <Field label="G. Fuente de tipo de cambio">
+                <AppSelect value={fuenteTC} onChange={v => onChange('fuenteTC', v)}
+                  options={[
+                    { value: 'datatec', label: 'Datatec (referencial automático)' },
+                    { value: 'manual',  label: 'Manual'                           },
+                  ]} />
+              </Field>
+
+              {/* H. TC Punta Referencia */}
+              <Field label="H. TC Punta Referencia"
+                hint={fuenteTC === 'datatec'
+                  ? `Ref. ${isPostCutoff ? 'Pizarra' : 'Datatec'}: C ${(isPostCutoff ? pizarra.compra : datatec.compra).toFixed(3)} / V ${(isPostCutoff ? pizarra.venta : datatec.venta).toFixed(3)}`
+                  : 'Ingreso manual'}>
+                <div className="relative">
+                  <input type="text" inputMode="decimal" placeholder="0.0000"
+                    value={tcPunta}
+                    disabled={fuenteTC === 'datatec'}
+                    onChange={e => onChange('tcPunta', e.target.value.replace(',', '.'))}
+                    className={inputTC(!!errors?.tcPunta, fuenteTC === 'datatec')} />
+                  {fuenteTC === 'datatec' && (
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 pointer-events-none">
+                      <div className={clsx('w-1.5 h-1.5 rounded-full', status === 'connected' && !isPostCutoff ? 'bg-green-500 animate-pulse' : 'bg-amber-500')} />
+                      <span className="text-[10px] font-bold text-gray-400 uppercase">
+                        {isPostCutoff ? 'Pre.Pizarra' : status === 'connected' ? 'LIVE' : 'Caché'}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </Field>
+            </div>
+          ) : (
           <div className="grid grid-cols-2 gap-4">
             {/* Monto */}
             <Field label={isCruzada ? `Monto a ingresar (flujo entrada)` : 'Monto'} required error={errors?.monto}>
@@ -557,6 +695,7 @@ function Step2({ formData, onChange, errors, marketData, ops }) {
                 className={inputTC(!!errors?.tcPactado, false)} />
             </Field>
           </div>
+          )}
 
           {/* Resultados calculados */}
           {isCruzada && contravalor !== null && (() => {
@@ -626,7 +765,7 @@ function Step2({ formData, onChange, errors, marketData, ops }) {
             )
           })()}
 
-          {!isCruzada && spread !== null && (
+          {tipoOp === 'venta' && spread !== null && (
             <div className="grid grid-cols-2 gap-3 mt-4">
               <div className="rounded-lg px-4 py-3 bg-gray-50 border border-gray-200">
                 <p className="text-[10px] text-gray-400 mb-1 uppercase tracking-wide">Spread calculado</p>
@@ -643,7 +782,17 @@ function Step2({ formData, onChange, errors, marketData, ops }) {
             </div>
           )}
 
-          {spreadNegativo && (
+          {/* Aviso compra: utilidad/spread negativos (punta trader por debajo del pactado) */}
+          {tipoOp === 'compra' && utilidad !== null && utilidad < 0 && (
+            <div className="flex items-start gap-2.5 p-3 bg-amber-50 border border-amber-200 rounded-lg mt-3">
+              <AlertTriangle size={14} className="text-amber-500 mt-0.5 shrink-0" />
+              <p className="text-xs text-amber-800">
+                <strong>Atención:</strong> La utilidad es negativa: la Punta Trader está por debajo del TC pactado. Verifique antes de continuar.
+              </p>
+            </div>
+          )}
+
+          {tipoOp === 'venta' && spreadNegativo && (
             <div className="flex items-start gap-2.5 p-3 bg-amber-50 border border-amber-200 rounded-lg mt-3">
               <AlertTriangle size={14} className="text-amber-500 mt-0.5 shrink-0" />
               <p className="text-xs text-amber-800">
@@ -677,10 +826,11 @@ function Step3({ formData, onChange, errors }) {
   const cuentasCli  = cliente ? (CUENTAS_CLIENTE[cliente.id] ?? []) : []
   // cruzada: misma moneda entrada y salida; el cliente recibe en la misma moneda que entrega
   const monedaDest  = isCruzada ? monedaCruz : tipoOp === 'compra' ? 'PEN' : 'USD'
-  const monedaOut   = isCruzada ? monedaCruz : tipoOp === 'compra' ? 'USD' : 'PEN'
-  const monedaIn    = isCruzada ? monedaCruz : tipoOp === 'compra' ? 'PEN' : 'USD'
-  const qpaqOutOpts = (CUENTAS_QAPAQ[monedaOut] ?? []).map(c => ({ value: c.id, label: `${c.banco} · ${c.numero} (${c.moneda})` }))
-  const qpaqInOpts  = (CUENTAS_QAPAQ[monedaIn]  ?? []).map(c => ({ value: c.id, label: `${c.banco} · ${c.numero} (${c.moneda})` }))
+  const monedaOut   = isCruzada ? monedaCruz : tipoOp === 'compra' ? 'PEN' : 'USD'  // egreso QAPAQ: compra paga soles, venta paga dólares
+  const monedaIn    = isCruzada ? monedaCruz : tipoOp === 'compra' ? 'USD' : 'PEN'  // ingreso QAPAQ: compra recibe dólares, venta recibe soles
+  const PENDIENTE_OPT = { value: CUENTA_PENDIENTE_ID, label: CUENTA_PENDIENTE_LABEL }
+  const qpaqOutOpts = [...(CUENTAS_QAPAQ[monedaOut] ?? []).map(c => ({ value: c.id, label: `${c.banco} · ${c.numero} (${c.moneda})` })), PENDIENTE_OPT]
+  const qpaqInOpts  = [...(CUENTAS_QAPAQ[monedaIn]  ?? []).map(c => ({ value: c.id, label: `${c.banco} · ${c.numero} (${c.moneda})` })), PENDIENTE_OPT]
 
   // Monto total que el cliente recibirá (en monedaDest)
   const inputVal  = parseMoney(formData.monto)     || 0
@@ -694,22 +844,30 @@ function Step3({ formData, onChange, errors }) {
       ? (inputVal > 0 && tcPact > 0 ? Math.round(inputVal * tcPact * 100) / 100 : null)
       : (inputVal > 0 && tcPact > 0 ? Math.round(inputVal / tcPact * 100) / 100 : null)
 
-  // Solo cuentas del cliente cuya moneda coincide con la que recibirá el cliente
-  const destOpts = cuentasCli
-    .filter(c => !tipoOp || c.moneda === monedaDest)
-    .map(c => ({
-      value: c.id,
-      label: `${c.banco} · ${c.numero} (${c.moneda}) — ${c.tipo === 'tercero' ? 'Tercero' : 'Propia'}`,
-    }))
+  // Solo cuentas del cliente cuya moneda coincide con la que recibirá el cliente,
+  // más la cuenta pendiente (transversal, siempre disponible y seleccionada por defecto)
+  const destOpts = [
+    ...cuentasCli
+      .filter(c => !tipoOp || c.moneda === monedaDest)
+      .map(c => ({
+        value: c.id,
+        label: `${c.banco} · ${c.numero} (${c.moneda}) — ${c.tipo === 'tercero' ? 'Tercero' : 'Propia'}`,
+      })),
+    { value: CUENTA_PENDIENTE_ID, label: CUENTA_PENDIENTE_LABEL },
+  ]
 
-  // Pre-rellenar monto de la primera fila con el total cuando está vacío
+  // Pre-rellenar monto de la primera fila con el total y dejar la cuenta pendiente por defecto
   useEffect(() => {
-    if (montoTotal !== null && (formData.cuentasDest ?? [{ cuentaId: '', monto: '' }])[0]?.monto === '') {
-      const updated = (formData.cuentasDest ?? [{ cuentaId: '', monto: '' }]).map((row, i) =>
-        i === 0 ? { ...row, monto: fmtMoney(montoTotal) } : row
-      )
-      onChange('cuentasDest', updated)
-    }
+    const rows = formData.cuentasDest ?? [{ cuentaId: '', monto: '' }]
+    const needsMonto   = montoTotal !== null && rows[0]?.monto === ''
+    const needsDefault = !rows[0]?.cuentaId   // sin cuenta elegida → cuenta pendiente por defecto
+    if (!needsMonto && !needsDefault) return
+    const updated = rows.map((row, i) => i === 0
+      ? { ...row,
+          cuentaId: row.cuentaId || CUENTA_PENDIENTE_ID,
+          monto: row.monto === '' && montoTotal !== null ? fmtMoney(montoTotal) : row.monto }
+      : row)
+    onChange('cuentasDest', updated)
   }, [montoTotal]) // eslint-disable-line
 
   function syncRows(updated) {
@@ -730,7 +888,10 @@ function Step3({ formData, onChange, errors }) {
   }
 
   function addRow() {
-    syncRows([...cuentasDest, { cuentaId: '', monto: '' }])
+    // Autocompletar la nueva cuenta con el monto faltante para llegar al total
+    const sumActual = cuentasDest.reduce((acc, row) => acc + (parseMoney(row.monto) || 0), 0)
+    const restante  = montoTotal !== null ? Math.round((montoTotal - sumActual) * 100) / 100 : null
+    syncRows([...cuentasDest, { cuentaId: '', monto: restante !== null && restante > 0 ? fmtMoney(restante) : '' }])
   }
 
   function removeRow(idx) {
@@ -747,24 +908,31 @@ function Step3({ formData, onChange, errors }) {
   const qpaqEgreso  = formData.cuentasQpaqEgreso  ?? [{ cuentaId: '', monto: '' }]
   const qpaqIngreso = formData.cuentasQpaqIngreso ?? [{ cuentaId: '', monto: '' }]
 
-  const montoEgresoEsperado  = inputVal > 0 ? inputVal : null
-  const montoIngresoEsperado = montoTotal
+  // egreso = lo que QAPAQ paga al cliente (contravalor); ingreso = lo que el cliente entrega (monto)
+  const montoEgresoEsperado  = montoTotal
+  const montoIngresoEsperado = inputVal > 0 ? inputVal : null
 
   const sumaEgreso  = qpaqEgreso.reduce((acc, r) => acc + (parseMoney(r.monto) || 0), 0)
   const sumaIngreso = qpaqIngreso.reduce((acc, r) => acc + (parseMoney(r.monto) || 0), 0)
   const egresoDif   = montoEgresoEsperado !== null ? montoEgresoEsperado - sumaEgreso : null
   const ingresoDif  = montoIngresoEsperado !== null ? montoIngresoEsperado - sumaIngreso : null
 
-  // Pre-rellenar primer monto QAPAQ egreso/ingreso
+  // Pre-rellenar primer monto QAPAQ y dejar la cuenta pendiente por defecto (egreso/ingreso)
   useEffect(() => {
-    if (montoEgresoEsperado !== null && qpaqEgreso[0]?.monto === '') {
-      onChange('cuentasQpaqEgreso', qpaqEgreso.map((r, i) => i === 0 ? { ...r, monto: fmtMoney(montoEgresoEsperado) } : r))
-    }
+    const needMonto   = montoEgresoEsperado !== null && qpaqEgreso[0]?.monto === ''
+    const needDefault = !qpaqEgreso[0]?.cuentaId
+    if (!needMonto && !needDefault) return
+    onChange('cuentasQpaqEgreso', qpaqEgreso.map((r, i) => i === 0
+      ? { ...r, cuentaId: r.cuentaId || CUENTA_PENDIENTE_ID, monto: r.monto === '' && montoEgresoEsperado !== null ? fmtMoney(montoEgresoEsperado) : r.monto }
+      : r))
   }, [montoEgresoEsperado, inputVal]) // eslint-disable-line
   useEffect(() => {
-    if (montoIngresoEsperado !== null && qpaqIngreso[0]?.monto === '') {
-      onChange('cuentasQpaqIngreso', qpaqIngreso.map((r, i) => i === 0 ? { ...r, monto: fmtMoney(montoIngresoEsperado) } : r))
-    }
+    const needMonto   = montoIngresoEsperado !== null && qpaqIngreso[0]?.monto === ''
+    const needDefault = !qpaqIngreso[0]?.cuentaId
+    if (!needMonto && !needDefault) return
+    onChange('cuentasQpaqIngreso', qpaqIngreso.map((r, i) => i === 0
+      ? { ...r, cuentaId: r.cuentaId || CUENTA_PENDIENTE_ID, monto: r.monto === '' && montoIngresoEsperado !== null ? fmtMoney(montoIngresoEsperado) : r.monto }
+      : r))
   }, [montoIngresoEsperado, montoTotal]) // eslint-disable-line
 
   function handleQpaqEgresoBlur(idx, val) {
@@ -772,6 +940,16 @@ function Step3({ formData, onChange, errors }) {
   }
   function handleQpaqIngresoBlur(idx, val) {
     onChange('cuentasQpaqIngreso', qpaqIngreso.map((r, i) => i === idx ? { ...r, monto: val } : r))
+  }
+
+  // Agregar cuenta QAPAQ autocompletando con el monto faltante hacia el total esperado
+  function addQpaqEgresoRow() {
+    const restante = montoEgresoEsperado !== null ? Math.round((montoEgresoEsperado - sumaEgreso) * 100) / 100 : null
+    onChange('cuentasQpaqEgreso', [...qpaqEgreso, { cuentaId: '', monto: restante !== null && restante > 0 ? fmtMoney(restante) : '' }])
+  }
+  function addQpaqIngresoRow() {
+    const restante = montoIngresoEsperado !== null ? Math.round((montoIngresoEsperado - sumaIngreso) * 100) / 100 : null
+    onChange('cuentasQpaqIngreso', [...qpaqIngreso, { cuentaId: '', monto: restante !== null && restante > 0 ? fmtMoney(restante) : '' }])
   }
 
   return (
@@ -846,11 +1024,11 @@ function Step3({ formData, onChange, errors }) {
 
         {/* Diferencia cuando hay múltiples cuentas */}
         {showDif && (
-          <div className="flex items-start gap-2.5 p-3 bg-amber-50 border border-amber-200 rounded-lg mt-3">
-            <AlertTriangle size={13} className="text-amber-500 mt-0.5 shrink-0" />
-            <p className="text-[11px] text-amber-800">
+          <div className="flex items-start gap-2.5 p-3 bg-red-50 border border-red-200 rounded-lg mt-3">
+            <AlertTriangle size={13} className="text-red-500 mt-0.5 shrink-0" />
+            <p className="text-[11px] text-red-700">
               La suma de los montos ({monedaDest} {fmtMoney(sumaMontos)}) difiere del total ({monedaDest} {fmtMoney(montoTotal)}).
-              Diferencia: {fmtMoney(Math.abs(diferencia))}.
+              Diferencia: {fmtMoney(Math.abs(diferencia))}. <strong>Ajusta los montos para continuar.</strong>
             </p>
           </div>
         )}
@@ -866,7 +1044,7 @@ function Step3({ formData, onChange, errors }) {
               {monedaOut && <span className="ml-1 font-normal normal-case text-gray-300">({monedaOut})</span>}
             </p>
             <button type="button" disabled={!tipoOp}
-              onClick={() => onChange('cuentasQpaqEgreso', [...qpaqEgreso, { cuentaId: '', monto: '' }])}
+              onClick={addQpaqEgresoRow}
               className={clsx('flex items-center gap-1 text-xs font-medium transition-colors',
                 tipoOp ? 'text-blue-600 hover:text-blue-800' : 'text-gray-300 cursor-not-allowed')}>
               <Plus size={12} /> Agregar
@@ -912,11 +1090,11 @@ function Step3({ formData, onChange, errors }) {
             ))}
           </div>
           {egresoDif !== null && Math.abs(egresoDif) > 0.005 && (
-            <div className="flex items-start gap-2 p-2.5 bg-amber-50 border border-amber-200 rounded-lg mt-2">
-              <AlertTriangle size={12} className="text-amber-500 mt-0.5 shrink-0" />
-              <p className="text-[11px] text-amber-800">
+            <div className="flex items-start gap-2 p-2.5 bg-red-50 border border-red-200 rounded-lg mt-2">
+              <AlertTriangle size={12} className="text-red-500 mt-0.5 shrink-0" />
+              <p className="text-[11px] text-red-700">
                 La suma de egresos ({monedaOut} {fmtMoney(sumaEgreso)}) difiere del total esperado ({monedaOut} {fmtMoney(montoEgresoEsperado)}).
-                Diferencia: {fmtMoney(Math.abs(egresoDif))}.
+                Diferencia: {fmtMoney(Math.abs(egresoDif))}. <strong>Ajusta los montos para continuar.</strong>
               </p>
             </div>
           )}
@@ -930,7 +1108,7 @@ function Step3({ formData, onChange, errors }) {
               {monedaIn && <span className="ml-1 font-normal normal-case text-gray-300">({monedaIn})</span>}
             </p>
             <button type="button" disabled={!tipoOp}
-              onClick={() => onChange('cuentasQpaqIngreso', [...qpaqIngreso, { cuentaId: '', monto: '' }])}
+              onClick={addQpaqIngresoRow}
               className={clsx('flex items-center gap-1 text-xs font-medium transition-colors',
                 tipoOp ? 'text-blue-600 hover:text-blue-800' : 'text-gray-300 cursor-not-allowed')}>
               <Plus size={12} /> Agregar
@@ -976,11 +1154,11 @@ function Step3({ formData, onChange, errors }) {
             ))}
           </div>
           {ingresoDif !== null && Math.abs(ingresoDif) > 0.005 && (
-            <div className="flex items-start gap-2 p-2.5 bg-amber-50 border border-amber-200 rounded-lg mt-2">
-              <AlertTriangle size={12} className="text-amber-500 mt-0.5 shrink-0" />
-              <p className="text-[11px] text-amber-800">
+            <div className="flex items-start gap-2 p-2.5 bg-red-50 border border-red-200 rounded-lg mt-2">
+              <AlertTriangle size={12} className="text-red-500 mt-0.5 shrink-0" />
+              <p className="text-[11px] text-red-700">
                 La suma de ingresos ({monedaIn} {fmtMoney(sumaIngreso)}) difiere del total esperado ({monedaIn} {fmtMoney(montoIngresoEsperado)}).
-                Diferencia: {fmtMoney(Math.abs(ingresoDif))}.
+                Diferencia: {fmtMoney(Math.abs(ingresoDif))}. <strong>Ajusta los montos para continuar.</strong>
               </p>
             </div>
           )}
@@ -1065,7 +1243,7 @@ function Step4({ formData, onConfirmar, confirmed, correlativo, onBack }) {
   const monedaDest  = isCruzada ? monedaCruz : tipoOp === 'compra' ? 'PEN' : 'USD'
   const tcPuntaN    = parseFloat(tcPunta)
   const tcPactadoN  = parseFloat(tcPactado)
-  const montoN      = parseFloat(monto)
+  const montoN      = parseMoney(monto)
   const spreadVal   = !isNaN(tcPuntaN) && !isNaN(tcPactadoN)
     ? (isCruzada
         ? Math.abs(tcPactadoN - tcPuntaN)
@@ -1080,6 +1258,12 @@ function Step4({ formData, onConfirmar, confirmed, correlativo, onBack }) {
       : tipoOp === 'compra' ? montoN * tcPactadoN : montoN / tcPactadoN
     : null
   const fee = isCruzada && contravalor !== null ? montoN - contravalor : null
+
+  // Compra: Punta Trader (D), Spread en pips y Utilidad
+  const puntaTraderN = parseFloat(formData.puntaTrader)
+  const spreadPipsN  = tipoOp === 'compra' && !isNaN(puntaTraderN) && !isNaN(tcPactadoN)
+    ? (puntaTraderN - tcPactadoN) * 10000 : null
+  const utilidadN    = spreadPipsN !== null && !isNaN(montoN) ? (spreadPipsN / 10000) * montoN : null
 
   return (
     <div>
@@ -1104,9 +1288,9 @@ function Step4({ formData, onConfirmar, confirmed, correlativo, onBack }) {
             }
           />
           <ResumenRow label={isCruzada ? `Flujo ingreso (${monedaMonto})` : `Monto ${monedaMonto}`}
-            value={monto ? `${monedaMonto} ${fmtMoney(+monto)}` : '—'} />
-          <ResumenRow label="TC pactado" value={tcPactado ? (+tcPactado).toFixed(4) : '—'} />
-          <ResumenRow label="TC punta" value={tcPunta ? (+tcPunta).toFixed(4) : '—'} />
+            value={monto ? `${monedaMonto} ${fmtMoney(monto)}` : '—'} />
+          <ResumenRow label="TC pactado" value={!isNaN(tcPactadoN) ? tcPactadoN.toFixed(4) : '—'} />
+          <ResumenRow label="TC punta" value={!isNaN(tcPuntaN) ? tcPuntaN.toFixed(4) : '—'} />
           <ResumenRow label={isCruzada ? `Flujo salida (${monedaDest})` : `Contravalor ${monedaDest}`}
             value={contravalor !== null ? `${monedaDest} ${fmtMoney(contravalor)}` : '—'}
           />
@@ -1114,12 +1298,23 @@ function Step4({ formData, onConfirmar, confirmed, correlativo, onBack }) {
             ? <ResumenRow label="Fee QAPAQ"
                 value={<span className="text-purple-700 font-semibold">{monedaCruz} {fmtMoney(fee)}</span>}
               />
-            : <ResumenRow label="Spread"
-                value={spreadVal !== null
-                  ? <span className={clsx('font-mono', spreadAlert && 'text-amber-600 font-semibold')}>{spreadVal.toFixed(4)}</span>
-                  : '—'}
-              />
+            : tipoOp === 'compra'
+              ? <ResumenRow label="Spread (pips)" value={spreadPipsN !== null ? spreadPipsN.toFixed(0) : '—'} />
+              : <ResumenRow label="Spread"
+                  value={spreadVal !== null
+                    ? <span className={clsx('font-mono', spreadAlert && 'text-amber-600 font-semibold')}>{spreadVal.toFixed(4)}</span>
+                    : '—'}
+                />
           }
+          {tipoOp === 'compra' && (
+            <>
+              <ResumenRow label="Punta Trader" value={!isNaN(puntaTraderN) ? puntaTraderN.toFixed(4) : '—'} />
+              <ResumenRow label="Utilidad estimada"
+                value={utilidadN !== null
+                  ? <span className={clsx('font-mono', utilidadN < 0 && 'text-red-600 font-semibold')}>PEN {fmtMoney(utilidadN)}</span>
+                  : '—'} />
+            </>
+          )}
           {isCruzada && (
             <ResumenRow label="Registros BCRP"
               value={<span className="text-purple-700 font-medium">2 registros (compra + venta)</span>}
@@ -1139,10 +1334,10 @@ function Step4({ formData, onConfirmar, confirmed, correlativo, onBack }) {
                     {idx === 0 ? 'Principal' : `Adicional ${idx}`}
                   </p>
                   <p className="text-sm text-gray-800 font-medium flex-1 text-right">
-                    {row.cuentaId || '—'}
+                    {labelCuentaCliente(cliente?.id, row.cuentaId)}
                   </p>
                   <p className="text-sm font-mono text-gray-700 shrink-0">
-                    {row.monto ? `${monedaDest} ${fmtMoney(+row.monto)}` : '—'}
+                    {row.monto ? `${monedaDest} ${fmtMoney(row.monto)}` : '—'}
                   </p>
                 </div>
               ))}
@@ -1157,8 +1352,8 @@ function Step4({ formData, onConfirmar, confirmed, correlativo, onBack }) {
           const hasEgreso = eq.some(r => r.cuentaId || r.monto)
           const hasIngreso = iq.some(r => r.cuentaId || r.monto)
           if (!hasEgreso && !hasIngreso) return null
-          const monedaOut = isCruzada ? monedaCruz : tipoOp === 'compra' ? 'USD' : 'PEN'
-          const monedaIn = isCruzada ? monedaCruz : tipoOp === 'compra' ? 'PEN' : 'USD'
+          const monedaOut = isCruzada ? monedaCruz : tipoOp === 'compra' ? 'PEN' : 'USD'
+          const monedaIn = isCruzada ? monedaCruz : tipoOp === 'compra' ? 'USD' : 'PEN'
           return (
             <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
               <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-200">
@@ -1170,8 +1365,8 @@ function Step4({ formData, onConfirmar, confirmed, correlativo, onBack }) {
                     <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Egreso ({monedaOut})</p>
                     {eq.map((row, idx) => (
                       <div key={idx} className="flex items-center justify-between gap-4 py-1.5">
-                        <p className="text-xs text-gray-500">{row.cuentaId || '—'}</p>
-                        <p className="text-sm font-mono text-gray-700">{row.monto ? `${monedaOut} ${fmtMoney(+row.monto)}` : '—'}</p>
+                        <p className="text-xs text-gray-500">{labelCuentaQpaq(row.cuentaId)}</p>
+                        <p className="text-sm font-mono text-gray-700">{row.monto ? `${monedaOut} ${fmtMoney(row.monto)}` : '—'}</p>
                       </div>
                     ))}
                   </div>
@@ -1233,9 +1428,48 @@ function validateStep(step, formData) {
     if (!formData.monto || isNaN(m) || m <= 0) e.monto = formData.tipoOp === 'compra' ? 'Ingresa el monto en USD.' : 'Ingresa el monto en PEN.'
     if (!formData.tcPactado || isNaN(t) || t <= 0) e.tcPactado = 'Ingresa el TC pactado con el cliente.'
     if (!formData.tcPunta || isNaN(parseFloat(formData.tcPunta))) e.tcPunta = 'Ingresa el TC de referencia.'
+    if (formData.tipoOp === 'compra' && (!formData.puntaTrader || isNaN(parseFloat(formData.puntaTrader)) || parseFloat(formData.puntaTrader) <= 0))
+      e.puntaTrader = 'Ingresa la Punta Trader (dato duro).'
   }
   if (step === 3) {
     if (formData.convAlert) e.cuentaDest = 'Una o más cuentas de tercero no tienen convenio vigente (AL-FO-04). Regulariza antes de continuar.'
+
+    // La suma de las cuentas debe cuadrar con el total de la operación
+    const isCruzada = formData.tipoOp === 'cruzada'
+    const inputVal  = parseMoney(formData.monto)     || 0
+    const tcPact    = parseFloat(formData.tcPactado) || 0
+    const tcRef     = parseFloat(formData.tcPunta)   || 0
+    const montoTotal = isCruzada
+      ? (inputVal > 0 && tcPact > 0 && tcRef > 0
+          ? Math.round(inputVal * Math.min(tcPact, tcRef) / Math.max(tcPact, tcRef) * 100) / 100
+          : null)
+      : formData.tipoOp === 'compra'
+        ? (inputVal > 0 && tcPact > 0 ? Math.round(inputVal * tcPact * 100) / 100 : null)
+        : (inputVal > 0 && tcPact > 0 ? Math.round(inputVal / tcPact * 100) / 100 : null)
+
+    const sumaSi = arr => (arr ?? []).reduce((acc, r) => acc + (parseMoney(r.monto) || 0), 0)
+    const tieneCuenta = arr => (arr ?? []).some(r => r.cuentaId)
+
+    // Cuentas destino del cliente: la suma debe igualar el total
+    if (montoTotal !== null && tieneCuenta(formData.cuentasDest)) {
+      const sumaDest = sumaSi(formData.cuentasDest)
+      if (Math.abs(montoTotal - sumaDest) > 0.005)
+        e.cuentasDestSuma = `La suma de las cuentas destino debe ser igual al total de la operación. Falta distribuir ${fmtMoney(Math.abs(montoTotal - sumaDest))}.`
+    }
+
+    // QAPAQ egreso (lo que QAPAQ paga al cliente): la suma debe igualar el contravalor/total
+    if (montoTotal !== null && tieneCuenta(formData.cuentasQpaqEgreso)) {
+      const sumaEg = sumaSi(formData.cuentasQpaqEgreso)
+      if (Math.abs(montoTotal - sumaEg) > 0.005)
+        e.qpaqEgresoSuma = `La suma de las cuentas QAPAQ de egreso debe ser igual al total de la operación. Falta distribuir ${fmtMoney(Math.abs(montoTotal - sumaEg))}.`
+    }
+
+    // QAPAQ ingreso (lo que el cliente entrega): la suma debe igualar el monto ingresado
+    if (inputVal > 0 && tieneCuenta(formData.cuentasQpaqIngreso)) {
+      const sumaIn = sumaSi(formData.cuentasQpaqIngreso)
+      if (Math.abs(inputVal - sumaIn) > 0.005)
+        e.qpaqIngresoSuma = `La suma de las cuentas QAPAQ de ingreso debe ser igual al monto de la operación. Falta distribuir ${fmtMoney(Math.abs(inputVal - sumaIn))}.`
+    }
   }
   return e
 }
@@ -1253,6 +1487,7 @@ const INITIAL_FORM = {
   fuenteTC:       'datatec',
   tcPunta:       '',
   tcPactado:     '',
+  puntaTrader:   '',
   cuentasDest:       [{ cuentaId: '', monto: '' }],
   cuentasQpaqEgreso: [{ cuentaId: '', monto: '' }],
   cuentasQpaqIngreso:[{ cuentaId: '', monto: '' }],
@@ -1307,11 +1542,18 @@ export default function CotizacionWizard({ onBack, onCreada, marketData, ops }) 
       ? Math.round(inputVal * Math.min(tc, tcRef) / Math.max(tc, tcRef) * 100) / 100
       : null
 
+    // Compra: Punta Trader (dato duro) y utilidad estimada
+    const puntaTrader = formData.tipoOp === 'compra' ? (parseFloat(formData.puntaTrader) || undefined) : undefined
+    const utilidad    = formData.tipoOp === 'compra' && puntaTrader && !isNaN(tc) && !isNaN(montoUSD)
+      ? Math.round((puntaTrader - tc) * montoUSD * 100) / 100
+      : undefined
+
     const newOp = {
       id,
       clienteNombre: cliente.nombre,
       tipo:     formData.tipoOp,
       ...(isCruzada && { monedaCruzada: formData.monedaCruzada ?? 'PEN', montoContravalor }),
+      ...(puntaTrader !== undefined && { puntaTrader, utilidad }),
       montoUSD,
       tc,
       montoPEN,
@@ -1352,6 +1594,17 @@ export default function CotizacionWizard({ onBack, onCreada, marketData, ops }) 
         <div className="bg-white rounded-2xl border border-gray-100 px-6 py-5 mb-6 shadow-sm">
           <StepIndicator currentStep={step} />
         </div>
+      )}
+
+      {/* Datos registrados de la operación — visibles en todas las pantallas del flujo */}
+      {!confirmed && (
+        <OpSummaryBar
+          cliente={formData.clienteResult?.nombre}
+          tipo={formData.tipoOp}
+          monedaCruzada={formData.monedaCruzada}
+          monto={formData.monto}
+          tc={formData.tcPactado}
+        />
       )}
 
       {/* Main Form Content */}

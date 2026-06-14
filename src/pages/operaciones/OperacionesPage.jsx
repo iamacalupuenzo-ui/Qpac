@@ -66,8 +66,8 @@ const MOCK_OPS_INIT = [
     tcRef: 3.739, tcFuente: 'Datatec',
     trader: 'Andrés Valdivia C.', mesa: 'Mesa Alpha',
     backOffice: 'María Torres',
-    cuentasQpaqEgreso:  [{ cuentaId: 'QP-USD-1', monto: '25000' }, { cuentaId: 'QP-USD-2', monto: '25000' }],
-    cuentasQpaqIngreso: [{ cuentaId: 'QP-PEN-1', monto: '187100' }],
+    cuentasQpaqIngreso: [{ cuentaId: 'QP-USD-1', monto: '25000' }, { cuentaId: 'QP-USD-2', monto: '25000' }],
+    cuentasQpaqEgreso:  [{ cuentaId: 'QP-PEN-1', monto: '187100' }],
     cuentasDest: [{ cuentaId: 'CTA-002', monto: '187100' }],
     solAnulacion: null, historial: [],
     fechaAnulacion: null, horaAnulacion: null, anuladoPor: null, causaAnulacion: null,
@@ -81,8 +81,8 @@ const MOCK_OPS_INIT = [
     tcRef: 3.738, tcFuente: 'Datatec',
     trader: 'Karla Mendoza R.', mesa: 'Mesa Beta',
     backOffice: 'Jorge Castillo',
-    cuentasQpaqEgreso:  [{ cuentaId: 'QP-PEN-2', monto: '93450' }],
-    cuentasQpaqIngreso: [{ cuentaId: 'QP-USD-1', monto: '25000' }],
+    cuentasQpaqIngreso: [{ cuentaId: 'QP-PEN-2', monto: '93450' }],
+    cuentasQpaqEgreso:  [{ cuentaId: 'QP-USD-1', monto: '25000' }],
     cuentasDest: [{ cuentaId: 'CTA-010', monto: '25000' }],
     solAnulacion: {
       causa: 'cliente_desiste',
@@ -102,11 +102,11 @@ const MOCK_OPS_INIT = [
     tcRef: 3.740, tcFuente: 'Datatec',
     trader: 'Rodrigo Paredes F.', mesa: 'Mesa Alpha',
     backOffice: 'Ana L. Ramírez',
-    cuentasQpaqIngreso: [
+    cuentasQpaqEgreso: [
       { cuentaId: 'QP-PEN-1', monto: '300000' },
       { cuentaId: 'QP-PEN-2', monto: '148920' },
     ],
-    cuentasQpaqEgreso:  [{ cuentaId: 'QP-USD-1', monto: '120000' }],
+    cuentasQpaqIngreso:  [{ cuentaId: 'QP-USD-1', monto: '120000' }],
     cuentasDest: [{ cuentaId: 'CTA-031', monto: '448920' }],
     comprobantes: [
       { name: 'Voucher_transferencia_OP003.pdf' },
@@ -124,8 +124,8 @@ const MOCK_OPS_INIT = [
     tcRef: 3.742, tcFuente: 'Manual',
     trader: 'Sofía Ríos M.', mesa: 'Mesa Beta',
     backOffice: 'María Torres',
-    cuentasQpaqIngreso: [{ cuentaId: 'QP-USD-2', monto: '15000' }],
-    cuentasQpaqEgreso:  [{ cuentaId: 'QP-PEN-2', monto: '56085' }],
+    cuentasQpaqEgreso:  [{ cuentaId: 'QP-USD-2', monto: '15000' }],
+    cuentasQpaqIngreso: [{ cuentaId: 'QP-PEN-2', monto: '56085' }],
     cuentasDest: [{ cuentaId: 'CTA-041', monto: '15000' }],
     comprobantes: [{ name: 'Comprobante_abono_OP004.pdf' }],
     solAnulacion: null,
@@ -143,8 +143,8 @@ const MOCK_OPS_INIT = [
     estado: 'reservada', fecha: T, hora: '11:05',
     trader: 'Andrés Valdivia C.', mesa: 'Mesa Alpha',
     backOffice: null,
-    cuentasQpaqEgreso:  [{ cuentaId: 'QP-USD-1', monto: '40000' }, { cuentaId: 'QP-USD-2', monto: '40000' }],
-    cuentasQpaqIngreso: [{ cuentaId: 'QP-PEN-2', monto: '299200' }],
+    cuentasQpaqIngreso: [{ cuentaId: 'QP-USD-1', monto: '40000' }, { cuentaId: 'QP-USD-2', monto: '40000' }],
+    cuentasQpaqEgreso:  [{ cuentaId: 'QP-PEN-2', monto: '299200' }],
     cuentasDest: [{ cuentaId: 'CTA-050', monto: '299200' }],
     solAnulacion: {
       causa: 'error_operativo',
@@ -163,9 +163,10 @@ const MOCK_OPS_INIT = [
     estado: 'liquidada', fecha: subDays(1), hora: '14:15',
     trader: 'César Huanca P.', mesa: 'Mesa Gamma',
     backOffice: 'Jorge Castillo',
-    cuentasQpaqEgreso:  [{ cuentaId: 'QP-PEN-1', monto: '31824' }],
-    cuentasQpaqIngreso: [{ cuentaId: 'QP-USD-1', monto: '8500' }],
+    cuentasQpaqIngreso: [{ cuentaId: 'QP-PEN-1', monto: '31824' }],
+    cuentasQpaqEgreso:  [{ cuentaId: 'QP-USD-1', monto: '8500' }],
     cuentasDest: [{ cuentaId: 'CTA-061', monto: '8500' }],
+    refTransferencia: 'TRF-006-2026', fechaLiquidacionISO: subDays(1),
     solAnulacion: null, historial: [],
     fechaAnulacion: null, horaAnulacion: null, anuladoPor: null, causaAnulacion: null,
   },
@@ -177,8 +178,8 @@ const MOCK_OPS_INIT = [
     estado: 'anulada', fecha: subDays(2), hora: '10:00',
     trader: 'Rodrigo Paredes F.', mesa: 'Mesa Alpha',
     backOffice: 'Ana L. Ramírez',
-    cuentasQpaqEgreso:  [{ cuentaId: 'QP-USD-2', monto: '45000' }],
-    cuentasQpaqIngreso: [{ cuentaId: 'QP-PEN-1', monto: '168435' }],
+    cuentasQpaqIngreso: [{ cuentaId: 'QP-USD-2', monto: '45000' }],
+    cuentasQpaqEgreso:  [{ cuentaId: 'QP-PEN-1', monto: '168435' }],
     cuentasDest: [{ cuentaId: 'CTA-071', monto: '168435' }],
     solAnulacion: null,
     historial: [
@@ -197,9 +198,24 @@ const MOCK_OPS_INIT = [
     estado: 'observada', fecha: T, hora: '13:40',
     trader: 'Luis Fernández A.', mesa: 'Mesa Gamma',
     backOffice: null,
-    cuentasQpaqEgreso:  [{ cuentaId: 'QP-PEN-2', monto: '44844' }],
-    cuentasQpaqIngreso: [{ cuentaId: 'QP-USD-2', monto: '12000' }],
+    cuentasQpaqIngreso: [{ cuentaId: 'QP-PEN-2', monto: '44844' }],
+    cuentasQpaqEgreso:  [{ cuentaId: 'QP-USD-2', monto: '12000' }],
     cuentasDest: [{ cuentaId: 'CTA-010', monto: '12000' }],
+    solAnulacion: null, historial: [],
+    fechaAnulacion: null, horaAnulacion: null, anuladoPor: null, causaAnulacion: null,
+  },
+  {
+    id: 'OP-2026-009',
+    clienteId: 'CLI-001',
+    clienteNombre: 'Empresa Industrial Inca S.A.C.',
+    tipo: 'compra', montoUSD: 30_000, tc: 3.741, montoPEN: 112_230,
+    estado: 'liquidada', fecha: T, hora: '09:50',
+    trader: 'Andrés Valdivia C.', mesa: 'Mesa Alpha',
+    backOffice: 'María Torres',
+    cuentasQpaqIngreso: [{ cuentaId: 'QP-USD-1', monto: '30000' }],
+    cuentasQpaqEgreso:  [{ cuentaId: 'QP-PEN-1', monto: '112230' }],
+    cuentasDest: [{ cuentaId: 'CTA-002', monto: '112230' }],
+    refTransferencia: 'TRF-009-2026', fechaLiquidacionISO: T,
     solAnulacion: null, historial: [],
     fechaAnulacion: null, horaAnulacion: null, anuladoPor: null, causaAnulacion: null,
   },
@@ -1167,20 +1183,26 @@ export default function OperacionesPage({ role = 'trader', activeTab = 'bandeja'
   }
 
   function handleConfirmarAbono(id, data) {
-    setOps(prev => prev.map(o => o.id === id ? {
+    setOps(prev => prev.map(o => {
+      if (o.id !== id) return o
+      // No perder las cuentas destino del cliente: filtrar filas vacías y, si no quedan, conservar las ya registradas
+      const destFiltradas = (data.cuentasDestCliente ?? []).filter(r => r.cuentaId || (r.monto !== '' && r.monto != null))
+      const cuentasDest = destFiltradas.length > 0 ? destFiltradas : (o.cuentasDest ?? [])
+      return {
       ...o,
       estado: 'en_revision',
       cuentasQpaqIngreso: data.cuentasQpaqIngreso ?? [],
       cuentasQpaqEgreso:  data.cuentasQpaqEgreso  ?? [],
       cuentaQpaqIn:  data.cuentasQpaqIngreso?.[0]?.cuentaId || data.ctaIngreso || '',
       cuentaQpaqOut: data.cuentasQpaqEgreso?.[0]?.cuentaId  || data.ctaEgreso  || '',
-      cuentasDest:   data.cuentasDestCliente ?? [],
+      cuentasDest,
       comprobantes:  data.files,
       montoUSD:      data.montoUSD ?? o.montoUSD,
       tc:            data.tc       ?? o.tc,
       montoPEN:      o.tipo === 'cruzada' ? null : Math.round((data.montoUSD ?? o.montoUSD) * (data.tc ?? o.tc) * 100) / 100,
       enviadaBackOffice: new Date().toISOString(),
-    } : o))
+      }
+    }))
     setView('bandeja')
     setEnvioOp(null)
     notify?.(`Operación ${id} enviada a Back Office para revisión.`)
@@ -1196,14 +1218,21 @@ export default function OperacionesPage({ role = 'trader', activeTab = 'bandeja'
     setOps(prev => prev.map(o => {
       if (o.id !== id) return o
       const comprobantesOriginales = (o.comprobantes ?? []).filter((_, i) => !(data.deletedOriginals ?? []).includes(i))
+      const nMontoUSD = data.montoUSD ?? o.montoUSD
+      const nTc       = data.tc       ?? o.tc
+      const nMontoPEN = o.tipo === 'cruzada' ? null : Math.round(nMontoUSD * nTc * 100) / 100
       return {
         ...o,
         estado: 'subsanada',
-        cuentaQpaqIn:  data.ctaIngreso,
-        cuentaQpaqOut: data.ctaEgreso,
-        montoUSD: data.montoUSD ?? o.montoUSD,
-        tc:       data.tc       ?? o.tc,
-        montoPEN: o.tipo === 'cruzada' ? null : Math.round((data.montoUSD ?? o.montoUSD) * (data.tc ?? o.tc) * 100) / 100,
+        cuentaQpaqIn:  data.ctaIngreso  || o.cuentaQpaqIn,
+        cuentaQpaqOut: data.ctaEgreso   || o.cuentaQpaqOut,
+        // Cuentas (con sus montos) editadas en la subsanación
+        cuentasQpaqIngreso: data.cuentasQpaqIngreso?.length ? data.cuentasQpaqIngreso : (o.cuentasQpaqIngreso ?? []),
+        cuentasQpaqEgreso:  data.cuentasQpaqEgreso?.length  ? data.cuentasQpaqEgreso  : (o.cuentasQpaqEgreso  ?? []),
+        cuentasDest:        data.cuentasDest?.length        ? data.cuentasDest        : (o.cuentasDest        ?? []),
+        montoUSD: nMontoUSD,
+        tc:       nTc,
+        montoPEN: nMontoPEN,
         comprobantes: [...comprobantesOriginales, ...data.files],
         historial: [...(o.historial ?? []), {
           tipo: 'subsanacion', por: 'Trader',
@@ -1223,6 +1252,7 @@ export default function OperacionesPage({ role = 'trader', activeTab = 'bandeja'
       estado: 'liquidada',
       refTransferencia,
       fechaLiquidacion,
+      fechaLiquidacionISO: T,
       historial: [...(o.historial ?? []), {
         tipo: 'liquidacion', por: 'Back Office',
         fecha: T, hora, detalle: `Operación liquidada. Referencia bancaria: ${refTransferencia}.`,
@@ -1594,12 +1624,26 @@ export default function OperacionesPage({ role = 'trader', activeTab = 'bandeja'
                               <Eye size={12} /> Revisar operación
                             </button>
                       ) : (op.estado === 'liquidada' && (role === 'back' || role === 'admin')) ? (
-                        <button
-                          onClick={() => setRevertirOp(op)}
-                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-violet-200 bg-violet-50 text-violet-700 text-[11px] font-semibold hover:bg-violet-100 transition-colors"
-                        >
-                          <span className="text-xs">↺</span> Solicitar reapertura
-                        </button>
+                        (() => {
+                          // Solo se pueden revertir operaciones liquidadas del mismo día
+                          const esDelDia = (op.fechaLiquidacionISO ?? op.fecha) === T
+                          return esDelDia ? (
+                            <button
+                              onClick={() => setRevertirOp(op)}
+                              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-violet-200 bg-violet-50 text-violet-700 text-[11px] font-semibold hover:bg-violet-100 transition-colors"
+                            >
+                              <span className="text-xs">↺</span> Solicitar reapertura
+                            </button>
+                          ) : (
+                            <button
+                              disabled
+                              title="Solo puedes revertir operaciones liquidadas del día"
+                              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200 bg-gray-50 text-gray-300 text-[11px] font-semibold cursor-not-allowed"
+                            >
+                              <span className="text-xs">↺</span> Solicitar reapertura
+                            </button>
+                          )
+                        })()
                       ) : (op.estado === 'pendiente_reapertura' && (role === 'head' || role === 'jefe' || role === 'admin')) ? (
                         <button
                           onClick={() => setAutorizarOp(op)}

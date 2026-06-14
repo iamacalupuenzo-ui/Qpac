@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import clsx from 'clsx'
 import { fmtMoney, fmtDate } from '../../utils/format.js'
+import OpSummaryBar from '../../components/ui/OpSummaryBar.jsx'
 
 /* ══════════════════════════════════════════════
    CATÁLOGOS DE LOOKUP
@@ -16,6 +17,7 @@ const QAPAQ_DISPLAY = {
   'QP-USD-2': 'Interbank · 200-9000002-001 (USD)',
   'QP-PEN-1': 'BCP · 191-9000003-0-01 (PEN)',
   'QP-PEN-2': 'Scotiabank · 00-272-9000004 (PEN)',
+  PENDIENTE: 'Cuenta por definir (pendiente)',
 }
 
 const CUENTAS_DISPLAY = {
@@ -35,17 +37,25 @@ const CUENTAS_DISPLAY = {
   'CTA-060': 'BCP · 191-6000001-0-22 (PEN)',
   'CTA-061': 'Interbank · 200-6000012-001 (USD)',
   transitoria: 'Cuenta transitoria QAPAQ',
+  PENDIENTE: 'Cuenta por definir (pendiente)',
 }
 
+/* Listado de errores tipo en operaciones de Mesa de Cambios (A–N) */
 const CAUSAS_OBSERVACION = [
-  { id: 'voucher_ilegible',  label: 'Voucher ilegible o de mala calidad' },
-  { id: 'monto_incorrecto',  label: 'Monto del voucher no coincide con la operación' },
-  { id: 'cuenta_incorrecta', label: 'Cuenta destino incorrecta' },
-  { id: 'tc_incorrecto',     label: 'TC no corresponde a lo pactado' },
-  { id: 'datos_cliente',     label: 'Datos del cliente no coinciden' },
-  { id: 'fecha_incorrecta',  label: 'Voucher de fecha incorrecta' },
-  { id: 'firma_faltante',    label: 'Firma o sello faltante en el documento' },
-  { id: 'doble_pago',        label: 'Posible pago duplicado detectado' },
+  { id: 'A', tipo: 'A', label: 'Error en distribución de flujos (sistema)',          detalle: 'Error en la colocación del banco (INGRESO o SALIDA) al momento del registro en el TRADER LIVE.' },
+  { id: 'B', tipo: 'B', label: 'Error en importes pactados (sistema)',               detalle: 'Error en montos declarados.' },
+  { id: 'C', tipo: 'C', label: 'Conversión',                                          detalle: 'Cliente abonó importe en cuenta bancaria de contravalor.' },
+  { id: 'D', tipo: 'D', label: 'Titular difiere con registro de operación (sistema)', detalle: 'Nombre del ticket generado en el sistema difiere del nombre del titular que abonó en banco.' },
+  { id: 'E', tipo: 'E', label: 'Registro de operación errada (compra-venta)',        detalle: 'Error del registro de VENTA en lugar de COMPRA o viceversa, en el sistema.' },
+  { id: 'F', tipo: 'F', label: 'Entrada de dinero en estado pendiente/en proceso',   detalle: 'No se valida el ingreso de fondos a nuestras cuentas bancarias - VOUCHERS.' },
+  { id: 'G', tipo: 'G', label: 'Documentación incompleta',                           detalle: 'VOUCHERS, DJ, CONVENIO o PLAFT (PEP): se precisará los documentos pendientes en correo.' },
+  { id: 'H', tipo: 'H', label: 'Sin autorización de excepción',                      detalle: 'No cuenta con conformidad de su jefatura por la omisión de algún requisito.' },
+  { id: 'I', tipo: 'I', label: 'Número de cuenta errada',                            detalle: 'Instrucción contiene número de cuenta bancaria de otro banco, otro titular, otra moneda o cuenta inválida.' },
+  { id: 'J', tipo: 'J', label: 'No envían nro. de cuenta de abono',                  detalle: 'Instrucción del correo no tiene la cuenta del cliente a depositar.' },
+  { id: 'K', tipo: 'K', label: 'Documentación errada',                               detalle: 'VOUCHERS, DJ, CONVENIO o PLAFT (PEP): se precisará los documentos errados en correo.' },
+  { id: 'L', tipo: 'L', label: 'Duplicidad de operación',                            detalle: 'Duplicados de voucher, TICKET de atención, correos de atención.' },
+  { id: 'M', tipo: 'M', label: 'Cliente bloqueado',                                  detalle: 'Cliente no ha subsanado observaciones previas o tiene más de una excepción previa.' },
+  { id: 'N', tipo: 'N', label: 'Otros',                                              detalle: 'Correcciones pendientes de Middle Office, entre otros; en correo se especificará el error.' },
 ]
 
 /* ══════════════════════════════════════════════
@@ -129,6 +139,30 @@ function InfoCard({ children, bg = 'blue' }) {
 function Step1({ op, onPreviewDoc }) {
   const historialObs = (op.historial ?? []).filter(h => h.tipo === 'observacion' || h.tipo === 'subsanacion')
   const monedaDestino = op.tipo === 'compra' ? 'PEN' : 'USD'
+  const monedaIngreso = op.tipo === 'compra' ? 'USD' : 'PEN'
+  const monedaEgreso  = op.tipo === 'compra' ? 'PEN' : 'USD'
+
+  // Totales por lado para usar como respaldo cuando una cuenta no tiene monto propio registrado
+  const montoPEN      = op.montoPEN ?? (op.montoUSD && op.tc ? Math.round(op.montoUSD * op.tc * 100) / 100 : null)
+  const totalIngreso  = monedaIngreso === 'USD' ? op.montoUSD : montoPEN
+  const totalEgreso   = monedaEgreso  === 'USD' ? op.montoUSD : montoPEN
+
+  // Normaliza un lado QAPAQ (ingreso/egreso) a filas { cuentaId, monto },
+  // rellenando el monto con el total del lado cuando hay una sola cuenta sin monto propio.
+  function qpaqRows(raw, fallbackId, total) {
+    let rows = (raw ?? [])
+      .map(r => typeof r === 'string' ? { cuentaId: r, monto: '' } : { cuentaId: r.cuentaId, monto: r.monto })
+      .filter(r => r.cuentaId)
+    if (rows.length === 0 && fallbackId) rows = [{ cuentaId: fallbackId, monto: '' }]
+    const hasMonto = m => m !== '' && m !== undefined && m !== null
+    if (rows.length === 1 && !hasMonto(rows[0].monto) && total != null) {
+      rows = [{ ...rows[0], monto: total }]
+    }
+    return rows
+  }
+
+  const rowsIngreso = qpaqRows(op.cuentasQpaqIngreso, op.cuentaQpaqIn,  totalIngreso)
+  const rowsEgreso  = qpaqRows(op.cuentasQpaqEgreso,  op.cuentaQpaqOut, totalEgreso)
 
   return (
     <div className="space-y-5">
@@ -165,59 +199,71 @@ function Step1({ op, onPreviewDoc }) {
         <SectionTitle>Cuentas QAPAQ registradas</SectionTitle>
         <div className="grid grid-cols-2 gap-3">
           {/* Ingreso */}
-          <div className="p-3 rounded-lg border border-gray-100 bg-gray-50 space-y-1">
+          <div className="p-3 rounded-lg border border-gray-100 bg-gray-50 space-y-1.5">
             <p className="text-[10px] text-gray-400">Cuenta(s) de ingreso</p>
-            {(() => {
-              const raw = op.cuentasQpaqIngreso ?? []
-              const ids = raw.map(r => typeof r === 'string' ? r : r.cuentaId).filter(Boolean)
-              if (ids.length === 0 && op.cuentaQpaqIn) ids.push(op.cuentaQpaqIn)
-              return ids.length > 0
-                ? ids.map((id, i) => (
-                    <p key={i} className="text-xs font-medium text-gray-700">{QAPAQ_DISPLAY[id] ?? id}</p>
-                  ))
-                : <p className="text-xs text-gray-400 italic">—</p>
-            })()}
+            {rowsIngreso.length > 0
+              ? rowsIngreso.map((r, i) => (
+                  <div key={i} className="flex items-center justify-between gap-3">
+                    <p className="text-xs font-medium text-gray-700 truncate">{QAPAQ_DISPLAY[r.cuentaId] ?? r.cuentaId}</p>
+                    {r.monto !== '' && r.monto != null && (
+                      <p className="text-xs font-bold text-gray-800 font-mono shrink-0">{monedaIngreso} {fmtMoney(r.monto)}</p>
+                    )}
+                  </div>
+                ))
+              : <p className="text-xs text-gray-400 italic">—</p>}
           </div>
           {/* Egreso */}
-          <div className="p-3 rounded-lg border border-gray-100 bg-gray-50 space-y-1">
+          <div className="p-3 rounded-lg border border-gray-100 bg-gray-50 space-y-1.5">
             <p className="text-[10px] text-gray-400">Cuenta(s) de egreso</p>
-            {(() => {
-              const raw = op.cuentasQpaqEgreso ?? []
-              const ids = raw.map(r => typeof r === 'string' ? r : r.cuentaId).filter(Boolean)
-              if (ids.length === 0 && op.cuentaQpaqOut) ids.push(op.cuentaQpaqOut)
-              return ids.length > 0
-                ? ids.map((id, i) => (
-                    <p key={i} className="text-xs font-medium text-gray-700">{QAPAQ_DISPLAY[id] ?? id}</p>
-                  ))
-                : <p className="text-xs text-gray-400 italic">—</p>
-            })()}
+            {rowsEgreso.length > 0
+              ? rowsEgreso.map((r, i) => (
+                  <div key={i} className="flex items-center justify-between gap-3">
+                    <p className="text-xs font-medium text-gray-700 truncate">{QAPAQ_DISPLAY[r.cuentaId] ?? r.cuentaId}</p>
+                    {r.monto !== '' && r.monto != null && (
+                      <p className="text-xs font-bold text-gray-800 font-mono shrink-0">{monedaEgreso} {fmtMoney(r.monto)}</p>
+                    )}
+                  </div>
+                ))
+              : <p className="text-xs text-gray-400 italic">—</p>}
           </div>
         </div>
       </div>
 
       {/* Cuentas destino del cliente */}
-      {(op.cuentasDest ?? []).length > 0 && (
-        <div>
-          <SectionTitle>Cuentas destino del cliente ({monedaDestino})</SectionTitle>
-          <div className="space-y-2">
-            {op.cuentasDest.map((row, idx) => (
-              <div key={idx} className="flex items-center justify-between px-4 py-3 rounded-lg border border-gray-100 bg-white">
-                <div>
-                  <p className="text-[10px] text-gray-400 mb-0.5">{idx === 0 ? 'Cuenta principal' : `Cuenta adicional ${idx}`}</p>
-                  <p className="text-xs font-medium text-gray-800">
-                    {CUENTAS_DISPLAY[row.cuentaId] ?? row.cuentaId ?? '—'}
-                  </p>
+      <div>
+        <SectionTitle>Cuentas destino del cliente ({monedaDestino})</SectionTitle>
+        {(() => {
+          // El cliente recibe en la misma moneda que el egreso QAPAQ (lo que QAPAQ paga al cliente)
+          const totalDestino = totalEgreso
+          let rows = (op.cuentasDest ?? []).filter(r => r.cuentaId || (r.monto !== '' && r.monto != null))
+          // Respaldo: una sola cuenta sin monto propio → total de la operación
+          if (rows.length === 1 && (rows[0].monto === '' || rows[0].monto == null) && totalDestino != null) {
+            rows = [{ ...rows[0], monto: totalDestino }]
+          }
+          if (rows.length === 0) {
+            return <p className="text-xs text-amber-600 italic">Sin cuenta destino del cliente registrada. Verifique antes de aprobar.</p>
+          }
+          return (
+            <div className="space-y-2">
+              {rows.map((row, idx) => (
+                <div key={idx} className="flex items-center justify-between px-4 py-3 rounded-lg border border-gray-100 bg-white">
+                  <div>
+                    <p className="text-[10px] text-gray-400 mb-0.5">{idx === 0 ? 'Cuenta principal' : `Cuenta adicional ${idx}`}</p>
+                    <p className="text-xs font-medium text-gray-800">
+                      {CUENTAS_DISPLAY[row.cuentaId] ?? row.cuentaId ?? '—'}
+                    </p>
+                  </div>
+                  {row.monto !== '' && row.monto != null && (
+                    <p className="text-sm font-bold text-gray-800 font-mono">
+                      {monedaDestino} {fmtMoney(row.monto)}
+                    </p>
+                  )}
                 </div>
-                {row.monto && (
-                  <p className="text-sm font-bold text-gray-800 font-mono">
-                    {monedaDestino} {parseFloat(row.monto).toLocaleString('es-PE', { minimumFractionDigits: 2 })}
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+              ))}
+            </div>
+          )
+        })()}
+      </div>
 
       {/* Comprobantes */}
       <div>
@@ -331,22 +377,35 @@ function Step2({ decision, setDecision, causas, setCausas, observacion, setObser
               <span className="ml-1 text-gray-400 font-normal">(selecciona al menos uno)</span>
             </label>
             <div className="space-y-1.5">
-              {CAUSAS_OBSERVACION.map(causa => (
-                <label key={causa.id}
-                  className={clsx(
-                    'flex items-center gap-3 px-3 py-2.5 rounded-lg border cursor-pointer transition-all',
-                    causas.includes(causa.id)
-                      ? 'border-orange-300 bg-orange-50'
-                      : 'border-gray-200 bg-white hover:border-orange-200 hover:bg-orange-50/30'
-                  )}>
-                  <input type="checkbox" checked={causas.includes(causa.id)}
-                    onChange={() => toggleCausa(causa.id)}
-                    className="accent-orange-500 w-3.5 h-3.5 shrink-0" />
-                  <span className={clsx('text-xs', causas.includes(causa.id) ? 'text-orange-800 font-medium' : 'text-gray-700')}>
-                    {causa.label}
-                  </span>
-                </label>
-              ))}
+              {CAUSAS_OBSERVACION.map(causa => {
+                const sel = causas.includes(causa.id)
+                return (
+                  <label key={causa.id}
+                    className={clsx(
+                      'flex items-start gap-3 px-3 py-2.5 rounded-lg border cursor-pointer transition-all',
+                      sel ? 'border-orange-300 bg-orange-50'
+                          : 'border-gray-200 bg-white hover:border-orange-200 hover:bg-orange-50/30'
+                    )}>
+                    <input type="checkbox" checked={sel}
+                      onChange={() => toggleCausa(causa.id)}
+                      className="accent-orange-500 w-3.5 h-3.5 shrink-0 mt-0.5" />
+                    <span className={clsx(
+                      'shrink-0 w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold mt-px',
+                      sel ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-500'
+                    )}>
+                      {causa.tipo}
+                    </span>
+                    <span className="min-w-0">
+                      <span className={clsx('block text-xs', sel ? 'text-orange-800 font-semibold' : 'text-gray-700 font-medium')}>
+                        {causa.label}
+                      </span>
+                      {causa.detalle && (
+                        <span className="block text-[11px] text-gray-400 mt-0.5 leading-snug">{causa.detalle}</span>
+                      )}
+                    </span>
+                  </label>
+                )
+              })}
             </div>
             {errors?.causas && <p className="text-[11px] text-red-500 mt-1">{errors.causas}</p>}
           </div>
@@ -418,7 +477,7 @@ function Step3({ op, decision, causas, observacion }) {
             <ul className="space-y-1">
               {causasSeleccionadas.map(c => (
                 <li key={c.id} className="flex items-center gap-1.5 text-xs text-orange-800">
-                  <span className="w-1 h-1 rounded-full bg-orange-400 shrink-0" />
+                  <span className="shrink-0 w-4 h-4 rounded bg-orange-500 text-white flex items-center justify-center text-[9px] font-bold">{c.tipo}</span>
                   {c.label}
                 </li>
               ))}
@@ -463,7 +522,7 @@ function Step3({ op, decision, causas, observacion }) {
                     <p className="text-[11px] text-gray-500">{resto}</p>
                   </div>
                   <p className="text-sm font-bold text-gray-900 font-mono">
-                    {monedaDestino} {row.monto ? parseFloat(row.monto).toLocaleString('es-PE', { minimumFractionDigits: 2 }) : '—'}
+                    {monedaDestino} {row.monto ? fmtMoney(row.monto) : '—'}
                   </p>
                 </div>
               )
@@ -624,7 +683,7 @@ export default function RevisionBackOfficeWizard({ op, onBack, onLiquidar, onObs
     if (!isAprob) {
       setLoading(true)
       setTimeout(() => {
-        const causasLabels = CAUSAS_OBSERVACION.filter(c => causas.includes(c.id)).map(c => c.label)
+        const causasLabels = CAUSAS_OBSERVACION.filter(c => causas.includes(c.id)).map(c => `${c.tipo}. ${c.label}`)
         onObservar(op.id, [...causasLabels, ...(observacion.trim() ? [observacion.trim()] : [])].join(' | '))
         setLoading(false)
         notify?.(`Operación ${op.id} devuelta al Trader con observación.`, 'warning')
@@ -691,6 +750,17 @@ export default function RevisionBackOfficeWizard({ op, onBack, onLiquidar, onObs
       <div className="bg-white rounded-2xl border border-gray-100 px-6 py-5 mb-6 shadow-sm">
         <StepIndicator currentStep={step} approved={isAprob && step > 1} totalSteps={totalSteps} />
       </div>
+
+      {/* Datos registrados de la operación — visibles en todas las pantallas del flujo */}
+      <OpSummaryBar
+        id={op.id}
+        cliente={op.clienteNombre}
+        tipo={op.tipo}
+        monedaCruzada={op.monedaCruzada}
+        monto={op.montoUSD}
+        moneda="USD"
+        tc={op.tc}
+      />
 
       {/* ── Contenido ── */}
       <div className="bg-white rounded-2xl border border-gray-100 p-8 shadow-sm mb-6">

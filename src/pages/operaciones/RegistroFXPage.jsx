@@ -235,8 +235,8 @@ export default function RegistroFXPage({ role = 'trader', onBack }) {
   const [correlativo,  setCorrelativo]  = useState(null)
 
   const cuentasCliente = clienteResult ? (CUENTAS_CLIENTE[clienteResult.id] ?? []) : []
-  const monedaOut  = tipoOp === 'compra' ? 'USD' : tipoOp === 'venta' ? 'PEN' : moneda
-  const monedaIn   = tipoOp === 'compra' ? 'PEN' : tipoOp === 'venta' ? 'USD' : (moneda === 'USD' ? 'PEN' : 'USD')
+  const monedaOut  = tipoOp === 'compra' ? 'PEN' : tipoOp === 'venta' ? 'USD' : moneda
+  const monedaIn   = tipoOp === 'compra' ? 'USD' : tipoOp === 'venta' ? 'PEN' : (moneda === 'USD' ? 'PEN' : 'USD')
   const qpaqOutOpts = (CUENTAS_QAPAQ[monedaOut] ?? []).map(c => ({ value: c.id, label: `${c.banco} · ${c.numero} (${c.moneda})` }))
   const qpaqInOpts  = (CUENTAS_QAPAQ[monedaIn]  ?? []).map(c => ({ value: c.id, label: `${c.banco} · ${c.numero} (${c.moneda})` }))
 

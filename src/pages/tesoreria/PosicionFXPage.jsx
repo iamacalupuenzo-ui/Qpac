@@ -51,21 +51,30 @@ function calcPosicion(ops, filtroMoneda = 'USD') {
 }
 
 function calcPorMesa(ops) {
+  const activas = ops.filter(o => ESTADOS_ACTIVOS.has(o.estado))
   const mesaMap = {}
-  for (const [mesa, { head, traders }] of Object.entries(JERARQUIA)) {
-    const opsTrader = {}
-    for (const t of traders) {
-      const tOps = ops.filter(o => ESTADOS_ACTIVOS.has(o.estado) && o.trader === t)
-      let c = 0, v = 0
-      for (const op of tOps) {
-        if (op.tipo === 'cruzada') continue
-        op.tipo === 'compra' ? (c += op.montoUSD) : (v += op.montoUSD)
-      }
-      opsTrader[t] = { compras: c, ventas: v, neta: c - v, count: tOps.length }
-    }
-    const totC = Object.values(opsTrader).reduce((s, x) => s + x.compras, 0)
-    const totV = Object.values(opsTrader).reduce((s, x) => s + x.ventas,  0)
-    mesaMap[mesa] = { head, traders: opsTrader, compras: totC, ventas: totV, neta: totC - totV }
+
+  // Inicializa las mesas conocidas para que siempre aparezcan, aunque no tengan operaciones
+  for (const [mesa, { head }] of Object.entries(JERARQUIA)) {
+    mesaMap[mesa] = { head, traders: {}, compras: 0, ventas: 0, neta: 0 }
+  }
+
+  // Agrupa por la mesa y el trader registrados en cada operación (no por una lista fija)
+  for (const op of activas) {
+    if (op.tipo === 'cruzada') continue
+    const mesa = op.mesa || 'Sin mesa asignada'
+    if (!mesaMap[mesa]) mesaMap[mesa] = { head: JERARQUIA[mesa]?.head ?? '—', traders: {}, compras: 0, ventas: 0, neta: 0 }
+    const trader = op.trader || 'Sin trader'
+    if (!mesaMap[mesa].traders[trader]) mesaMap[mesa].traders[trader] = { compras: 0, ventas: 0, neta: 0, count: 0 }
+    const t = mesaMap[mesa].traders[trader]
+    if (op.tipo === 'compra') { t.compras += op.montoUSD; mesaMap[mesa].compras += op.montoUSD }
+    else                      { t.ventas  += op.montoUSD; mesaMap[mesa].ventas  += op.montoUSD }
+    t.count += 1
+    t.neta = t.compras - t.ventas
+  }
+
+  for (const mesa of Object.keys(mesaMap)) {
+    mesaMap[mesa].neta = mesaMap[mesa].compras - mesaMap[mesa].ventas
   }
   return mesaMap
 }
