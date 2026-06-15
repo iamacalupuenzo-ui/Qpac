@@ -86,6 +86,10 @@ const CUENTAS_QAPAQ = {
 
 const TC_SBS     = { compra: 3.735, venta: 3.740 }
 
+/* Rango habitual de cotización — fuera de él se considera precio atípico (fuera de márgenes) */
+const RANGO_TC = { min: 3.600, max: 3.900 }
+function fueraDeMargenes(tc) { return !isNaN(tc) && tc > 0 && (tc < RANGO_TC.min || tc > RANGO_TC.max) }
+
 /* ═══════════════════════════════════════════════
    HELPERS
 ═══════════════════════════════════════════════ */
@@ -381,9 +385,30 @@ function Step2({ formData, onChange, errors, marketData, ops }) {
     else if (isCruzada) onChange('tcPunta', String(monedaCruz === 'PEN' ? refB : refV))
   }, [fuenteTC, tipoOp, monedaCruz, datatec, pizarra, currentMode])
 
+  const montoPen     = formData.montoPen ?? ''
   const tcPuntaNum   = parseFloat(tcPunta)
   const tcPactadoNum = parseFloat(tcPactado)
   const montoNum     = parseMoney(monto)
+
+  /* ── Triángulo A·B·C (solo COMPRA): A = Monto USD, B = TC pactado, C = Monto PEN ──
+     Los tres son editables. Se recalcula el que NO fue de los dos últimos editados.
+     C = A × B   ·   B = C / A   ·   A = C / B   */
+  const [tripleEdit, setTripleEdit] = useState([])  // recencia: ['monto','tcPactado','montoPen']
+  function setTriple(field, raw) {
+    onChange(field, raw)
+    const order = [field, ...tripleEdit.filter(f => f !== field)]
+    setTripleEdit(order)
+    const keep  = order.slice(0, 2)
+    const third = ['monto', 'tcPactado', 'montoPen'].find(f => !keep.includes(f))
+    const valOf = f => f === field ? raw
+      : f === 'monto' ? monto : f === 'tcPactado' ? tcPactado : montoPen
+    const A = parseMoney(valOf('monto'))
+    const B = parseFloat(valOf('tcPactado'))
+    const C = parseMoney(valOf('montoPen'))
+    if      (third === 'montoPen'  && A > 0 && B > 0) onChange('montoPen',  fmtMoney(Math.round(A * B * 100) / 100))
+    else if (third === 'tcPactado' && A > 0 && C > 0) onChange('tcPactado', (C / A).toFixed(4))
+    else if (third === 'monto'     && B > 0 && C > 0) onChange('monto',     fmtMoney(Math.round(C / B * 100) / 100))
+  }
 
   // Spread: compra = punta−pactado; venta = pactado−punta; cruzada = |pactado−punta| siempre positivo
   const spread = !isNaN(tcPuntaNum) && tcPuntaNum > 0 && !isNaN(tcPactadoNum) && tcPactadoNum > 0
@@ -552,12 +577,12 @@ function Step2({ formData, onChange, errors, marketData, ops }) {
             /* ── NUEVO ESQUEMA — COMPRA (orden A-H) ── */
             <div className="grid grid-cols-2 gap-4">
               {/* A. Monto USD */}
-              <Field label="A. Monto (USD)" required error={errors?.monto}>
+              <Field label="A. Monto (USD)" required error={errors?.monto} hint="Editable — con 2 de 3 (A·B·C) se recalcula el tercero">
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400">USD</span>
                   <input type="text" inputMode="numeric" placeholder="0.00"
                     value={monto}
-                    onChange={e => onChange('monto', e.target.value.replace(/[^0-9.,]/g, ''))}
+                    onChange={e => setTriple('monto', e.target.value.replace(/[^0-9.,]/g, ''))}
                     onBlur={() => { const n = parseMoney(monto); if (!isNaN(n) && n > 0) onChange('monto', fmtMoney(n)) }}
                     onFocus={() => onChange('monto', monto.replace(/,/g, ''))}
                     className={clsx('w-full pl-12 pr-3 py-2.5 rounded-lg border text-sm text-right outline-none transition-all',
@@ -570,14 +595,22 @@ function Step2({ formData, onChange, errors, marketData, ops }) {
               <Field label="B. TC pactado con el cliente" required error={errors?.tcPactado}>
                 <input type="text" inputMode="decimal" placeholder="0.0000"
                   value={tcPactado}
-                  onChange={e => onChange('tcPactado', e.target.value.replace(',', '.'))}
+                  onChange={e => setTriple('tcPactado', e.target.value.replace(',', '.'))}
                   className={inputTC(!!errors?.tcPactado, false)} />
               </Field>
 
-              {/* C. Monto PEN (calculado = A × B) */}
-              <Field label="C. Monto PEN" hint="Contravalor = Monto USD × TC pactado">
-                <div className="w-full px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm text-right font-mono text-gray-700">
-                  {contravalor !== null ? `PEN ${fmtMoney(contravalor)}` : '—'}
+              {/* C. Monto PEN (editable — recalcula A o B) */}
+              <Field label="C. Monto PEN" error={errors?.montoPen} hint="Contravalor = Monto USD × TC pactado">
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400">PEN</span>
+                  <input type="text" inputMode="numeric" placeholder="0.00"
+                    value={montoPen}
+                    onChange={e => setTriple('montoPen', e.target.value.replace(/[^0-9.,]/g, ''))}
+                    onBlur={() => { const n = parseMoney(montoPen); if (!isNaN(n) && n > 0) onChange('montoPen', fmtMoney(n)) }}
+                    onFocus={() => onChange('montoPen', montoPen.replace(/,/g, ''))}
+                    className={clsx('w-full pl-12 pr-3 py-2.5 rounded-lg border text-sm text-right outline-none transition-all',
+                      errors?.montoPen ? 'border-red-400 ring-2 ring-red-50'
+                      : 'border-gray-200 hover:border-gray-300 focus:border-blue-400 focus:ring-2 focus:ring-blue-50')} />
                 </div>
               </Field>
 
@@ -797,6 +830,16 @@ function Step2({ formData, onChange, errors, marketData, ops }) {
               <AlertTriangle size={14} className="text-amber-500 mt-0.5 shrink-0" />
               <p className="text-xs text-amber-800">
                 <strong>Atención:</strong> El TC pactado difiere del TC de referencia. Verifique antes de continuar.
+              </p>
+            </div>
+          )}
+
+          {/* Precio fuera de márgenes — cotización atípica (TC pactado fuera de 3.600–3.900) */}
+          {fueraDeMargenes(tcPactadoNum) && (
+            <div className="flex items-start gap-2.5 p-3 bg-red-50 border border-red-200 rounded-lg mt-3">
+              <AlertTriangle size={14} className="text-red-500 mt-0.5 shrink-0" />
+              <p className="text-xs text-red-800">
+                <strong>Precio fuera de márgenes:</strong> El TC pactado ({tcPactadoNum.toFixed(4)}) está fuera del rango habitual ({RANGO_TC.min.toFixed(3)} – {RANGO_TC.max.toFixed(3)}). Verifique que el dato sea correcto antes de continuar.
               </p>
             </div>
           )}
@@ -1376,8 +1419,8 @@ function Step4({ formData, onConfirmar, confirmed, correlativo, onBack }) {
                     <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Ingreso ({monedaIn})</p>
                     {iq.map((row, idx) => (
                       <div key={idx} className="flex items-center justify-between gap-4 py-1.5">
-                        <p className="text-xs text-gray-500">{row.cuentaId || '—'}</p>
-                        <p className="text-sm font-mono text-gray-700">{row.monto ? `${monedaIn} ${fmtMoney(+row.monto)}` : '—'}</p>
+                        <p className="text-xs text-gray-500">{labelCuentaQpaq(row.cuentaId)}</p>
+                        <p className="text-sm font-mono text-gray-700">{row.monto ? `${monedaIn} ${fmtMoney(row.monto)}` : '—'}</p>
                       </div>
                     ))}
                   </div>
@@ -1392,6 +1435,15 @@ function Step4({ formData, onConfirmar, confirmed, correlativo, onBack }) {
             <AlertTriangle size={14} className="text-amber-500 mt-0.5 shrink-0" />
             <p className="text-xs text-amber-800">
               <strong>Atención:</strong> El TC pactado difiere del TC de referencia en más de 0.01. Verifique con el cliente antes de confirmar.
+            </p>
+          </div>
+        )}
+
+        {fueraDeMargenes(tcPactadoN) && (
+          <div className="flex items-start gap-2.5 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <AlertTriangle size={14} className="text-red-500 mt-0.5 shrink-0" />
+            <p className="text-xs text-red-800">
+              <strong>Precio fuera de márgenes:</strong> El TC pactado ({tcPactadoN.toFixed(4)}) está fuera del rango habitual ({RANGO_TC.min.toFixed(3)} – {RANGO_TC.max.toFixed(3)}). Verifique antes de confirmar.
             </p>
           </div>
         )}

@@ -1161,3 +1161,316 @@ El reporte Adelantado tiene corte dinámico (antes de las 5:00 PM), por lo que d
 **Cómo revertir:** Eliminar estado `dateFil`, quitar `matchDate` de `filtered`, eliminar el input de fecha.
 
 ---
+
+## [2026-06-14] Módulo Operaciones / Tesorería – Ronda de ajustes de diseño (revisión con cliente)
+
+**Motivo:** Levantamiento de observaciones de reunión y documentos compartidos sobre el flujo de operaciones FX (cotización, abono, revisión Back Office, subsanación) y módulos de Tesorería (Posición FX, Saldos Bancarios).
+
+**Convención de negocio importante (no volver a invertir):**
+- Los montos se almacenan como **strings formateados** (ej. `"20,000.00"`). Para parsear usar SIEMPRE `parseMoney`/`fmtMoney` de `src/utils/format.js`, NUNCA `parseFloat` ni unary `+` (cortan en la coma → bug de "dividir entre 1000" o `NaN`).
+- **Moneda por lado del flujo QAPAQ:**
+  - Compra: ingreso = USD (lo que entrega el cliente), egreso = PEN/soles (lo que paga QAPAQ).
+  - Venta: ingreso = PEN/soles, egreso = USD.
+  - Cliente recibe (destino) = lado egreso (compra→PEN, venta→USD).
+
+---
+
+### CAMBIO 48 — Banda de datos de la operación en todo el flujo
+
+**Módulo:** Operaciones (wizards de cotización, abono y revisión)
+**Archivos:** `src/components/ui/OpSummaryBar.jsx` (nuevo), `CotizacionWizard.jsx`, `ConfirmarAbonoWizard.jsx`, `RevisionBackOfficeWizard.jsx`
+
+**Qué se hizo:** Componente reutilizable `OpSummaryBar` que muestra cliente, tipo (compra/venta/cruzada), monto y TC pactado en todas las pantallas del flujo. Se monta debajo del stepper en los tres wizards.
+
+**Cómo revertir:** Quitar los `<OpSummaryBar .../>` de los tres wizards y borrar el componente.
+
+---
+
+### CAMBIO 49 — Corrección de montos (parseFloat → fmtMoney/parseMoney)
+
+**Módulo:** Operaciones (revisión, abono, confirmación, subsanación)
+**Archivos:** `RevisionBackOfficeWizard.jsx`, `ConfirmarAbonoWizard.jsx`, `CotizacionWizard.jsx` (Step 4), `SubsanacionWizard.jsx`
+
+**Qué se hizo:** Se reemplazaron `parseFloat(monto).toLocaleString(...)` y `fmtMoney(+monto)` (que daban montos /1000 o `—`) por `fmtMoney(monto)`. Se mostró el monto por cada cuenta QAPAQ de ingreso/egreso en la revisión, con respaldo al total del lado cuando una sola cuenta no tiene monto propio.
+
+**Cómo revertir:** No recomendado (corrige bugs). Volver a `parseFloat`/`+` reintroduce el error.
+
+---
+
+### CAMBIO 50 — Cuentas destino del cliente nunca se pierden en el flujo
+
+**Módulo:** Operaciones (abono → revisión)
+**Archivos:** `OperacionesPage.jsx` (`handleConfirmarAbono`), `RevisionBackOfficeWizard.jsx`
+
+**Qué se hizo:** `handleConfirmarAbono` ya no sobrescribe `cuentasDest` con vacío: filtra filas vacías y conserva las registradas si no llega ninguna. La revisión siempre renderiza la sección "Cuentas destino del cliente" (con aviso ámbar si no hay ninguna).
+
+**Cómo revertir:** Restaurar `cuentasDest: data.cuentasDestCliente ?? []` y la condición `(op.cuentasDest ?? []).length > 0` alrededor de la sección.
+
+---
+
+### CAMBIO 51 — Autocompletar monto faltante + bloqueo por cuadre de sumas (cotización)
+
+**Módulo:** Operaciones → Nueva cotización (Step 3 Cuentas)
+**Archivo:** `CotizacionWizard.jsx`
+
+**Qué se hizo:** Al agregar una cuenta (cliente / QAPAQ egreso / ingreso) se autocompleta el monto faltante hacia el total. `validateStep(3)` bloquea avanzar si la suma de cada grupo difiere del total (tolerancia 0.005). Avisos en rojo "Ajusta los montos para continuar".
+
+**Cómo revertir:** Quitar los bloques de suma en `validateStep` (step 3) y revertir `addRow`/`addQpaqEgresoRow`/`addQpaqIngresoRow` a `{ cuentaId: '', monto: '' }`.
+
+---
+
+### CAMBIO 52 — Números de cuenta legibles en confirmación (Step 4 cotización)
+
+**Módulo:** Operaciones → Nueva cotización (Step 4)
+**Archivo:** `CotizacionWizard.jsx`
+
+**Qué se hizo:** Helpers `labelCuentaCliente` / `labelCuentaQpaq` resuelven los IDs (`CTA-…`, `QP-…`) al formato "Banco · Número (Moneda)" en el resumen.
+
+**Cómo revertir:** Mostrar `row.cuentaId` directo en lugar de los helpers.
+
+---
+
+### CAMBIO 53 — Leyenda de errores Back Office (listado oficial A–N)
+
+**Módulo:** Operaciones → Revisión Back Office (Step 2 Decisión)
+**Archivo:** `RevisionBackOfficeWizard.jsx`
+
+**Qué se hizo:** Se reemplazó `CAUSAS_OBSERVACION` por el listado oficial de Mesa de Cambios (tipos A a N con descripción y casuística). La UI muestra chip de letra + descripción + detalle. La observación al Trader se registra como `"A. <descripción> | …"`.
+
+**Cómo revertir:** Restaurar el array `CAUSAS_OBSERVACION` anterior y el render simple de `causa.label`.
+
+---
+
+### CAMBIO 54 — Subsanación: edición completa de cuentas con montos
+
+**Módulo:** Operaciones → Observadas → Subsanar
+**Archivos:** `SubsanacionWizard.jsx` (reescritura), `OperacionesPage.jsx` (`handleSubsanar`)
+
+**Qué se hizo:** El wizard ahora precarga y permite editar monto, TC, cuentas QAPAQ ingreso/egreso y cuentas del cliente, todas con montos múltiples (componente `CuentaSection`). `handleSubsanar` persiste los arrays `cuentasQpaqIngreso/Egreso/cuentasDest` enviados.
+
+**Cómo revertir:** Volver a la versión previa (solo selects simples de cuenta QAPAQ ingreso/egreso) — ver historial git.
+
+---
+
+### CAMBIO 55 — Corrección moneda ingreso/egreso (transversal)
+
+**Módulo:** Operaciones + Tesorería (todos los flujos)
+**Archivos:** `CotizacionWizard.jsx`, `ConfirmarAbonoWizard.jsx`, `RevisionBackOfficeWizard.jsx`, `SubsanacionWizard.jsx`, `EnvioBackOfficeDrawer.jsx`, `RegistroFXPage.jsx`, y datos semilla en `OperacionesPage.jsx`
+
+**Qué se hizo:** Estaba invertido. Se fijó: `monedaIngreso = compra ? 'USD' : 'PEN'`, `monedaEgreso = compra ? 'PEN' : 'USD'`. Se intercambiaron las cuentas semilla `cuentasQpaqIngreso`↔`Egreso` en las 8 operaciones para que los datos queden coherentes, y se ajustaron los totales esperados por lado.
+
+**Cómo revertir:** No recomendado. Ver convención de negocio arriba.
+
+---
+
+### CAMBIO 56 — Revertir/reapertura solo para liquidadas del día
+
+**Módulo:** Operaciones → Liquidadas
+**Archivo:** `OperacionesPage.jsx`
+
+**Qué se hizo:** El botón "Solicitar reapertura" se deshabilita si `(op.fechaLiquidacionISO ?? op.fecha) !== T` (hoy). Se agregó `fechaLiquidacionISO` en `handleLiquidar` y en seeds; se añadió OP-2026-009 liquidada hoy como ejemplo activo.
+
+**Cómo revertir:** Quitar la condición `esDelDia` y dejar el botón siempre activo.
+
+---
+
+### CAMBIO 57 — Posición FX: detalle por mesa con datos reales
+
+**Módulo:** Tesorería → Posición FX
+**Archivo:** `src/pages/tesoreria/PosicionFXPage.jsx`
+
+**Qué se hizo:** `calcPorMesa` agrupa por el campo `mesa`/`trader` real de cada operación (antes cruzaba contra una lista fija de traders, por eso salía $0.00 por mesa).
+
+**Cómo revertir:** Restaurar la versión que iteraba `JERARQUIA[*].traders`.
+
+---
+
+### CAMBIO 58 — Saldos Bancarios: columna "Flujos"
+
+**Módulo:** Tesorería → Saldos Bancarios
+**Archivo:** `src/pages/tesoreria/SaldosBancariosPage.jsx`
+
+**Qué se hizo:** Nueva columna que muestra "Con flujos" / "Sin flujos" / "Flujos por definir" según movimientos y bolsa registrada.
+
+**Cómo revertir:** Quitar el `<th>Flujos</th>` y la celda correspondiente en `FilaCuenta`.
+
+---
+
+### CAMBIO 59 — Cuenta "por definir (pendiente)" transversal y por defecto
+
+**Módulo:** Operaciones (cotización, abono, subsanación, revisión)
+**Archivos:** `CotizacionWizard.jsx`, `ConfirmarAbonoWizard.jsx`, `SubsanacionWizard.jsx`, `RevisionBackOfficeWizard.jsx`
+
+**Qué se hizo:** Opción transversal `PENDIENTE` ("Cuenta por definir (pendiente)") disponible en los desplegables de cuenta del cliente, QAPAQ egreso y QAPAQ ingreso. En la cotización viene **seleccionada por defecto** en la primera fila de cada grupo. Abono y subsanación traen lo registrado y permiten reemplazar pendientes por cuentas reales. Se manejó el label en los mapas `CUENTAS_DISPLAY`/`QAPAQ_DISPLAY` y helpers. (Se descartó la idea de "cuenta favorita" del cliente.)
+
+**Cómo revertir:** Quitar `CUENTA_PENDIENTE_ID`/`PENDIENTE_OPT` de las opciones y el default en los `useEffect` de la cotización.
+
+---
+
+### CAMBIO 60 — Nuevo esquema de cálculo en Compra (Punta Trader / Utilidad / Spread)
+
+**Módulo:** Operaciones → Nueva cotización (Step 2, solo COMPRA)
+**Archivo:** `CotizacionWizard.jsx`
+
+**Qué se hizo:** Reordenó la sección "Monto y tipo de cambio" para compra con campos A–H:
+A. Monto USD · B. TC pactado · C. Monto PEN (=A×B) · D. **Punta Trader** (dato duro, input nuevo `formData.puntaTrader`) · E. **Utilidad** = (D−B)×A (PEN) · F. **Spread** = (D−B)×10,000 (pips) · G. Fuente TC · H. TC Punta Referencia.
+- D se precarga con el referencial y es editable; es obligatorio para avanzar en compra.
+- Venta y cruzada quedan SIN cambios (layout anterior).
+- El resumen (Step 4) y el `newOp` guardan `puntaTrader` y `utilidad`.
+- **Pendiente para desarrollo:** spread venta = (B−D)×10,000 y la extensión a venta/cruzada quedan documentadas pero NO activas (ambiente de diseño).
+
+**Cómo revertir:** Quitar el branch `tipoOp === 'compra'` del Step 2 (dejar solo el grid genérico), eliminar `puntaTrader` de `INITIAL_FORM`/`validateStep`/`handleConfirmar` y los cálculos `spreadPips`/`utilidad`.
+
+---
+
+## [2026-06-15] Módulo Clientes – Convenios y Documentación: registro de Apoderados
+
+---
+
+### CAMBIO 61 — Botón "+ Apoderados" para registrar apoderados del cliente
+
+**Módulo:** Clientes → Convenios y Documentación
+**Ruta en el sistema:** Menú principal > Clientes > pestaña "Convenios y documentación" > botón "Apoderados" (junto a "Nuevo documento") · También disponible desde la ficha de cliente > pestaña "Convenios y documentación"
+**Archivo:** `src/pages/clientes/ConveniosTab.jsx`
+**Motivo:** Pedido del negocio: poder registrar apoderados del cliente capturando solo nombres y apellidos, tipo de DOI y número de DOI.
+
+**Qué se hizo:**
+- Se agregó la constante `TIPO_DOI_OPTS` (DNI, Carné de Extranjería, Pasaporte, RUC) y la data mock `MOCK_APODERADOS` (apoderados por cliente).
+- Se agregó el botón secundario **"Apoderados"** (ícono `UserPlus`) en la toolbar, a la izquierda de "Nuevo documento".
+- Nuevo componente `ApoderadosDrawer` (drawer lateral de 520px) que lista y administra los apoderados del cliente. Cada apoderado se captura con **tres campos**: Nombres y apellidos, Tipo de DOI (`DrawerSelect`) y Número de DOI. Filas dinámicas con "Agregar" (`UserPlus`) y eliminar (`Trash2`), igual al patrón de `RepRow`.
+- En la ficha de cliente (clienteId fijo) el drawer administra directamente los apoderados de ese cliente. En la vista global incluye un selector de cliente; al elegirlo se cargan sus apoderados.
+- `handleSaveApoderados(cid, rows)`: filtra filas con nombre y número válidos y reemplaza los apoderados del cliente (`setApoderados`).
+- Estado nuevo en `ConveniosTab`: `apoderados` (con `MOCK_APODERADOS`) y `apoderadosOpen`.
+- Componente auxiliar `ApoderadoRow`. Reutiliza `Field`, `DrawerSelect`, `inputCls` e íconos ya importados (`UserPlus`, `Trash2`, `Check`, `X`).
+
+**Cómo revertir:**
+- Quitar el botón "Apoderados" de la toolbar (restaurar `flex justify-end mb-3` sin `gap-2`).
+- Eliminar `ApoderadosDrawer`, `ApoderadoRow`, `newApoderado`/`_apoId`, `TIPO_DOI_OPTS`, `MOCK_APODERADOS` y `handleSaveApoderados`.
+- Quitar los estados `apoderados` y `apoderadosOpen` y el `<ApoderadosDrawer ... />` del return.
+
+---
+
+## [2026-06-15] Módulo Operaciones – Nueva cotización Step 2 (Compra): triángulo A·B·C y alerta de margen
+
+---
+
+### CAMBIO 62 — Step 2 Compra: Monto USD (A), TC pactado (B) y Monto PEN (C) editables con recálculo 2 de 3
+
+**Módulo:** Operaciones → Nueva cotización (wizard)
+**Ruta en el sistema:** Menú principal > Operaciones > botón "Nueva cotización" > Step 2 "Operación" > sección "Monto y tipo de cambio" (solo tipo **Compra**)
+**Archivo:** `src/pages/operaciones/CotizacionWizard.jsx`
+**Motivo:** Pedido del negocio: poder ingresar cualquiera de los tres valores y que el sistema complete el faltante.
+
+**Qué se hizo:**
+- El campo **C. Monto PEN** dejó de ser solo lectura y ahora es un input editable (con prefijo PEN y formato de miles en blur), enlazado a `formData.montoPen`.
+- Se agregó la función `setTriple(field, raw)` y el estado `tripleEdit` (recencia de edición de `['monto','tcPactado','montoPen']`). Al editar uno de los tres, se mantiene como fijos los **dos últimos editados** y se recalcula el tercero:
+  - C = A × B (Monto PEN = Monto USD × TC pactado)
+  - B = C / A (TC pactado, 4 decimales)
+  - A = C / B (Monto USD)
+- Los inputs A, B y C disparan `setTriple` en su `onChange`. El contravalor, utilidad y spread siguen derivándose de `monto × tcPactado`, que se mantiene consistente con el triángulo.
+- La vista de **Venta/Cruzada no cambió**.
+
+**Nota técnica:** `montoPen` ya existía en `INITIAL_FORM`. Una vez calculado persiste en el form, por lo que al volver al Step 2 el valor de C se conserva.
+
+**Cómo revertir:** Restaurar el campo C como `<div>` de solo lectura mostrando `contravalor`, volver `onChange` directo en A y B, y eliminar `setTriple` y el estado `tripleEdit`.
+
+---
+
+### CAMBIO 63 — Alerta de "Precio fuera de márgenes" (cotización atípica) en Step 2 y resumen
+
+**Módulo:** Operaciones → Nueva cotización (wizard)
+**Ruta en el sistema:** Step 2 "Operación" (sección Monto y tipo de cambio) y Step 4 (Resumen)
+**Archivo:** `src/pages/operaciones/CotizacionWizard.jsx`
+**Motivo:** La detección de cotización atípica definida en `mejoras/definicion.md` (§4.3) no estaba implementada en el wizard.
+
+**Qué se hizo:**
+- Se agregaron la constante `RANGO_TC = { min: 3.600, max: 3.900 }` y el helper `fueraDeMargenes(tc)` (mismo rango que `TcSbsPage`).
+- Cuando el **TC pactado** queda fuera de `3.600 – 3.900`, se muestra un banner rojo: *"Precio fuera de márgenes: El TC pactado (X) está fuera del rango habitual (3.600 – 3.900)…"*. Aplica a compra, venta y cruzada.
+- El mismo aviso se replica en el resumen (Step 4), junto a la alerta de spread.
+- La alerta es informativa: no bloquea el avance (consistente con el override con justificación previsto en el negocio).
+
+**Cómo revertir:** Eliminar `RANGO_TC` y `fueraDeMargenes`, y quitar los dos bloques de banner rojo en `Step2` y `Step4`.
+
+---
+
+## [2026-06-15] Módulo Operaciones – Flujo de cuentas (resumen cotización y edición en abono)
+
+---
+
+### CAMBIO 64 — Resumen cotización: cuenta QAPAQ de Ingreso muestra etiqueta legible y monto correcto
+
+**Módulo:** Operaciones → Nueva cotización (wizard)
+**Ruta en el sistema:** Menú principal > Operaciones > "Nueva cotización" > Step 4 (Resumen) > tarjeta "Cuentas QAPAQ" > sección Ingreso
+**Archivo:** `src/pages/operaciones/CotizacionWizard.jsx`
+
+**Descripción del bug:** En el resumen, el bloque de Egreso mostraba la etiqueta legible (`labelCuentaQpaq`) pero el de **Ingreso** mostraba el ID crudo (`QP-USD-1`). Además el monto del ingreso se formateaba con `fmtMoney(+row.monto)`: el `+` convertía a `NaN` cualquier monto con separador de miles ("1,500.00"), mostrando "—".
+
+**Qué se hizo:**
+- Ingreso ahora usa `labelCuentaQpaq(row.cuentaId)` → "BCP · 191-9000001-0-01 (USD)".
+- Monto ahora usa `fmtMoney(row.monto)` (sin el `+`), consistente con el bloque de Egreso.
+
+**Nota:** Las cuentas y montos sí se persistían correctamente en `handleConfirmar` (`cuentasDest`, `cuentasQpaqEgreso`, `cuentasQpaqIngreso`); el problema era solo de visualización en el resumen.
+
+**Cómo revertir:** En el bloque de Ingreso del resumen restaurar `{row.cuentaId || '—'}` y `fmtMoney(+row.monto)`.
+
+---
+
+### CAMBIO 65 — Confirmar Abono: la cuenta destino del cliente vuelve a ser editable
+
+**Módulo:** Operaciones → Pendientes de Abono
+**Ruta en el sistema:** Menú principal > Operaciones > pestaña "Pendientes de abono" > "Confirmar abono" > Step 2 > sección "Cuentas destino del cliente"
+**Archivo:** `src/pages/operaciones/ConfirmarAbonoWizard.jsx`
+**Motivo:** Pedido del negocio: si la decisión de cuenta cambió, el ejecutivo debe poder editar la cuenta destino pre-cargada (antes quedaba bloqueada como solo lectura).
+
+**Qué se hizo:**
+- Se eliminó la rama de solo lectura para filas `_preset`. Ahora **todas** las filas (pre-cargadas o nuevas) muestran el `<select>` editable de cuentas del cliente.
+- Para no perder la cuenta pre-cargada si su moneda no coincide con el filtro de `monedaAbono`, se agrega esa cuenta a las opciones del desplegable (lookup en `todasCuentasCli`).
+- El flag `_preset` sigue en el estado (se sigue eliminando del payload al confirmar) pero ya no afecta la editabilidad.
+- Las validaciones de suma de montos vs. total ya estaban implementadas y se conservan.
+
+**Cómo revertir:** Restaurar la condición `row._preset && row.cuentaId ?` con el `<div>` de solo lectura previo, y volver a usar `cuentasCli` directamente en el `<select>` de las filas no-preset.
+
+---
+
+## [2026-06-15] Módulo Tesorería – Saldos Bancarios: cuenta "sin definir" y retiro de columna Flujos
+
+---
+
+### CAMBIO 66 — Fila de cuenta "sin definir" y eliminación de la columna Flujos
+
+**Módulo:** Tesorería → Saldos Bancarios
+**Ruta en el sistema:** Menú principal > Tesorería > pestaña "Saldos Bancarios"
+**Archivo:** `src/pages/tesoreria/SaldosBancariosPage.jsx`
+**Motivo:** Al inicio del proceso no todas las cuentas tienen banco/fondos establecidos; y la columna Flujos (CAMBIO 58) ya no es necesaria.
+
+**Qué se hizo:**
+- Se agregó una fila adicional al catálogo `CUENTAS_QAPAQ_MOCK`: `QP-SINDEF` con `banco: 'Por definir'`, `numero: 'Sin asignar'`, `tipo: 'sin_definir'` y sin límites. Queda en "Sin registro" de bolsa y "N/D" de disponible.
+- Se agregó el estilo de badge ámbar para `tipo === 'sin_definir'` y se muestra la etiqueta con el guion bajo reemplazado por espacio ("sin definir").
+- Se **eliminó la columna "Flujos"** (CAMBIO 58): se quitó el `<th>Flujos</th>` y la celda con los badges "Con flujos / Sin flujos / Flujos por definir" en `FilaCuenta`.
+
+**Cómo revertir:**
+- Quitar la entrada `QP-SINDEF` de `CUENTAS_QAPAQ_MOCK` y el branch `sin_definir` del badge de tipo (volver a `{cuenta.tipo ?? 'operativa'}`).
+- Reinsertar el `<th>Flujos</th>` y la celda de flujos en `FilaCuenta` (ver CAMBIO 58).
+
+---
+
+## [2026-06-15] Módulo Operaciones – Bandeja: indicador de actualización y refresh manual de KPIs
+
+---
+
+### CAMBIO 67 — Botón "Actualizar" + indicador de auto-refresh en las métricas de la Bandeja
+
+**Módulo:** Operaciones → Bandeja General
+**Ruta en el sistema:** Menú principal > Operaciones > tarjetas de KPIs (Reservadas / Observadas / Liquidadas hoy / Anuladas / Solicitudes pendientes)
+**Archivo:** `src/pages/operaciones/OperacionesPage.jsx`
+**Motivo:** Pedido del negocio: dar visibilidad de que las métricas se actualizan y permitir forzar el refresco. Patrón elegido: **botón + indicador** (igual que Saldos Bancarios), solo en Operaciones.
+
+**Qué se hizo:**
+- Se añadió una cabecera sobre la grilla de KPIs con: título "Resumen de operaciones", leyenda *"Actualizado HH:MM · se refresca automáticamente"* y un botón **"Actualizar"** (ícono `RefreshCw`).
+- Estado nuevo: `lastRefresh` (timestamp) y `refreshing` (para animar el ícono). `useEffect` con `setInterval` de 30s actualiza `lastRefresh`. `handleRefresh` lo actualiza al instante y anima el ícono 500ms.
+- Los KPIs ya se recalculan desde `ops` vía `useMemo`; el botón es principalmente de transparencia/UX (en producción dispararía la recarga de datos).
+- Se importó `RefreshCw` de lucide-react.
+
+**Cómo revertir:** Quitar la cabecera de métricas, los estados `lastRefresh`/`refreshing`, el `useEffect` del intervalo, `handleRefresh` y el import `RefreshCw`.
+
+---

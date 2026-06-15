@@ -397,37 +397,35 @@ function Step2({ op, qpaqEgreso, setQpaqEgreso, qpaqIngreso, setQpaqIngreso,
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <Field label="Cuenta destino">
-                    {row._preset && row.cuentaId ? (
-                      <div className="w-full px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-700">
-                        {cuentaInfo ? (
-                          <span>
-                            <span className="font-medium">{cuentaInfo.banco}</span>
-                            {' · '}{cuentaInfo.numero}
-                            <span className="ml-1.5 text-[11px] text-gray-400">({cuentaInfo.moneda} — {cuentaInfo.tipo === 'tercero' ? 'Tercero' : 'Propia'})</span>
-                          </span>
-                        ) : (
-                          <span className="text-gray-500">{row.cuentaId}</span>
-                        )}
-                      </div>
-                    ) : (
-                      <>
-                        <select
-                          value={row.cuentaId}
-                          onChange={e => updateCuentaDest(idx, 'cuentaId', e.target.value)}
-                          className={selectCls(false)}>
-                          <option value="">Seleccionar cuenta…</option>
-                          {cuentasCli.map(c => (
-                            <option key={c.id} value={c.id}>
-                              {c.banco} · {c.numero} ({c.moneda}){c.tipo === 'tercero' ? ' — Tercero' : ''}
-                            </option>
-                          ))}
-                          <option value={CUENTA_PENDIENTE_ID}>Cuenta por definir (pendiente)</option>
-                        </select>
-                        {cuentasCli.length === 0 && (
-                          <p className="text-[11px] text-amber-600 mt-1">Sin cuentas en {monedaAbono} para este cliente; puedes dejarla como pendiente.</p>
-                        )}
-                      </>
-                    )}
+                    {(() => {
+                      /* Opciones del cliente filtradas por la moneda de abono. Si la cuenta
+                         ya seleccionada (p. ej. pre-cargada) no está en el filtro, se agrega
+                         igual para no perderla y permitir cambiarla. */
+                      const opts = [...cuentasCli]
+                      if (row.cuentaId && row.cuentaId !== CUENTA_PENDIENTE_ID && !opts.some(c => c.id === row.cuentaId)) {
+                        const found = todasCuentasCli.find(c => c.id === row.cuentaId)
+                        if (found) opts.push(found)
+                      }
+                      return (
+                        <>
+                          <select
+                            value={row.cuentaId}
+                            onChange={e => updateCuentaDest(idx, 'cuentaId', e.target.value)}
+                            className={selectCls(false)}>
+                            <option value="">Seleccionar cuenta…</option>
+                            {opts.map(c => (
+                              <option key={c.id} value={c.id}>
+                                {c.banco} · {c.numero} ({c.moneda}){c.tipo === 'tercero' ? ' — Tercero' : ''}
+                              </option>
+                            ))}
+                            <option value={CUENTA_PENDIENTE_ID}>Cuenta por definir (pendiente)</option>
+                          </select>
+                          {cuentasCli.length === 0 && (
+                            <p className="text-[11px] text-amber-600 mt-1">Sin cuentas en {monedaAbono} para este cliente; puedes dejarla como pendiente.</p>
+                          )}
+                        </>
+                      )
+                    })()}
                   </Field>
                   <Field label={`Monto (${monedaAbono})`}>
                     <div className="relative">

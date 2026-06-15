@@ -19,6 +19,8 @@ const CUENTAS_QAPAQ_MOCK = [
   { id: 'QP-USD-2', banco: 'Interbank',  numero: '200-9000002-001',  moneda: 'USD', tipo: 'operativa',   mesa: 'Mesa Beta',  limiteAlerta: 80_000,  limiteCritico: 15_000  },
   { id: 'QP-TRANS-PEN', banco: 'BCP',    numero: '191-9000099-0-01', moneda: 'PEN', tipo: 'transitoria', mesa: '—',          limiteAlerta: undefined, limiteCritico: undefined },
   { id: 'QP-TRANS-USD', banco: 'Interbank', numero: '200-9000099-001', moneda: 'USD', tipo: 'transitoria', mesa: '—',       limiteAlerta: undefined, limiteCritico: undefined },
+  /* Cuenta sin banco/fondos definidos: al inicio del proceso no todas tienen banco establecido */
+  { id: 'QP-SINDEF', banco: 'Por definir', numero: 'Sin asignar', moneda: 'PEN', tipo: 'sin_definir', mesa: '—', limiteAlerta: undefined, limiteCritico: undefined },
 ]
 
 /* ══════════════════════════════════════════════
@@ -202,8 +204,10 @@ function FilaCuenta({ cuenta, bolsa, ops, tcSbs, ajustes, role, onBolsaAction })
       {/* Tipo */}
       <td className="px-4 py-3">
         <span className={clsx('text-[10px] font-bold px-2 py-0.5 rounded-full',
-          cuenta.tipo === 'transitoria' ? 'bg-violet-50 text-violet-600' : 'bg-gray-100 text-gray-600')}>
-          {cuenta.tipo ?? 'operativa'}
+          cuenta.tipo === 'transitoria' ? 'bg-violet-50 text-violet-600'
+          : cuenta.tipo === 'sin_definir' ? 'bg-amber-50 text-amber-600'
+          : 'bg-gray-100 text-gray-600')}>
+          {(cuenta.tipo ?? 'operativa').replace('_', ' ')}
         </span>
       </td>
 
@@ -239,17 +243,6 @@ function FilaCuenta({ cuenta, bolsa, ops, tcSbs, ajustes, role, onBolsaAction })
       <td className="px-4 py-3 text-[11px] text-gray-400 text-right">
         {disponible === null || cuenta.moneda === 'PEN' ? '—' : (
           <>S/ {fmtMoney(disponible * (actualTcSbs ?? TC_SBS_AYER))}{!actualTcSbs && <sup className="text-amber-400">*</sup>}</>
-        )}
-      </td>
-
-      {/* Flujos — informa si la cuenta tiene movimientos registrados */}
-      <td className="px-4 py-3">
-        {(ingresos > 0 || salidas > 0) ? (
-          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-green-50 border-green-200 text-green-700">Con flujos</span>
-        ) : sinBolsa ? (
-          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-amber-50 border-amber-200 text-amber-700">Flujos por definir</span>
-        ) : (
-          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-gray-100 border-gray-200 text-gray-500">Sin flujos</span>
         )}
       </td>
 
@@ -452,7 +445,6 @@ export default function SaldosBancariosPage({ ops = [], marketData, tcSbs, ajust
                 <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 text-right">− Salidas</th>
                 <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 text-right">Disponible neto</th>
                 <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 text-right">Equiv. PEN</th>
-                <th className="px-4 py-2.5 text-xs font-semibold text-gray-500">Flujos</th>
                 <th className="px-4 py-2.5 text-xs font-semibold text-gray-500">Estado</th>
                 {esTesorer && <th className="px-4 py-2.5 text-xs font-semibold text-gray-500">Acción</th>}
               </tr>

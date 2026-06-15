@@ -2,7 +2,7 @@
 import {
   Search, X, AlertTriangle, ChevronDown, Check,
   Eye, Info, Ban, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Clock, Filter, Plus, Pencil, ShieldCheck, Send,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, RefreshCw,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { fmtDate, fmtMoney, fmtTC } from '../../utils/format.js'
@@ -1040,6 +1040,20 @@ export default function OperacionesPage({ role = 'trader', activeTab = 'bandeja'
   const [search,       setSearch]       = useState('')
   const [page,         setPage]         = useState(1)
   const [pageSize,     setPageSize]     = useState(10)
+  const [lastRefresh,  setLastRefresh]  = useState(new Date())
+  const [refreshing,   setRefreshing]   = useState(false)
+
+  // Auto-refresh de métricas cada 30s (los KPIs se recalculan desde ops vía useMemo)
+  useEffect(() => {
+    const t = setInterval(() => setLastRefresh(new Date()), 30_000)
+    return () => clearInterval(t)
+  }, [])
+
+  function handleRefresh() {
+    setRefreshing(true)
+    setLastRefresh(new Date())
+    setTimeout(() => setRefreshing(false), 500)
+  }
 
   /* Drawers */
   const [solicitarOp, setSolicitarOp] = useState(null)
@@ -1391,6 +1405,21 @@ export default function OperacionesPage({ role = 'trader', activeTab = 'bandeja'
           </button>
         </div>
       )}
+
+      {/* Encabezado de métricas — indicador de actualización + refresh manual */}
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Resumen de operaciones</p>
+        <div className="flex items-center gap-2.5">
+          <span className="text-[11px] text-gray-400 flex items-center gap-1">
+            <Clock size={11} className="shrink-0" />
+            Actualizado {lastRefresh.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })} · se refresca automáticamente
+          </span>
+          <button onClick={handleRefresh}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200 bg-white text-[11px] font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+            <RefreshCw size={11} className={clsx('shrink-0', refreshing && 'animate-spin')} /> Actualizar
+          </button>
+        </div>
+      </div>
 
       {/* Stats */}
       <div className="grid grid-cols-5 gap-3 mb-4">

@@ -138,6 +138,19 @@ const MOCK_DOCS = [
   },
 ]
 
+/* Apoderados registrados por cliente (mock) */
+const TIPO_DOI_OPTS = [
+  { value: 'DNI', label: 'DNI' },
+  { value: 'CE',  label: 'Carné de Extranjería' },
+  { value: 'PAS', label: 'Pasaporte' },
+  { value: 'RUC', label: 'RUC' },
+]
+
+const MOCK_APODERADOS = [
+  { id: 1, clienteId: 'CLI-002', nombre: 'Carlos Ramírez Torres', tipoDoi: 'DNI', numeroDoi: '28765432' },
+  { id: 2, clienteId: 'CLI-003', nombre: 'Elena Fuentes Mora',    tipoDoi: 'DNI', numeroDoi: '31234567' },
+]
+
 /* ═══════════════════════════════════════════════
    STYLES
 ═══════════════════════════════════════════════ */
@@ -910,6 +923,166 @@ function RepRow({ rep, index, errors, onChange, onRemove }) {
 }
 
 /* ═══════════════════════════════════════════════
+   APODERADOS DRAWER — registro de apoderados
+═══════════════════════════════════════════════ */
+let _apoId = 200
+function newApoderado() { return { id: ++_apoId, nombre: '', tipoDoi: 'DNI', numeroDoi: '' } }
+
+function ApoderadoRow({ apo, index, errors, onChange, onRemove }) {
+  return (
+    <div className="p-3 rounded-lg space-y-2" style={{ background: 'var(--color-surface-bg)', border: '1px solid var(--color-border)' }}>
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] font-semibold text-gray-400 tracking-wide">APODERADO {index + 1}</p>
+        <button type="button" onClick={onRemove}
+          className="p-1 rounded text-gray-300 hover:text-red-400 transition-colors">
+          <Trash2 size={12} />
+        </button>
+      </div>
+      <Field label="Nombres y apellidos" required error={errors.nombre}>
+        <input type="text" placeholder="Nombres y apellidos"
+          value={apo.nombre} onChange={e => onChange('nombre', e.target.value)}
+          className={inputCls(errors.nombre)} />
+      </Field>
+      <div className="grid grid-cols-2 gap-2">
+        <Field label="Tipo de DOI" required>
+          <DrawerSelect value={apo.tipoDoi} onChange={v => onChange('tipoDoi', v)}
+            options={TIPO_DOI_OPTS} placeholder="Tipo" />
+        </Field>
+        <Field label="Número de DOI" required error={errors.numeroDoi}>
+          <input type="text" placeholder="N° de documento"
+            value={apo.numeroDoi} onChange={e => onChange('numeroDoi', e.target.value)}
+            className={inputCls(errors.numeroDoi)} />
+        </Field>
+      </div>
+    </div>
+  )
+}
+
+function ApoderadosDrawer({ open, onClose, onSave, fixedClienteId, initial }) {
+  const [clienteId, setClienteId] = useState('')
+  const [rows,      setRows]      = useState([])
+  const [errors,    setErrors]    = useState({})
+
+  /* Load this client's apoderados when opening (or when switching client in global view) */
+  const cid = fixedClienteId ?? clienteId
+  useEffect(() => {
+    if (!open) return
+    setClienteId(fixedClienteId ?? '')
+    setErrors({})
+  }, [open, fixedClienteId])
+
+  useEffect(() => {
+    if (!open) return
+    setRows(cid ? initial.filter(a => a.clienteId === cid) : [])
+  }, [open, cid, initial])
+
+  function addApoderado()      { setRows(rs => [...rs, newApoderado()]) }
+  function removeApoderado(id) { setRows(rs => rs.filter(r => r.id !== id)) }
+  function updateApoderado(id, field, value) {
+    setRows(rs => rs.map(r => r.id === id ? { ...r, [field]: value } : r))
+    if (errors[`apo_${id}_${field}`]) setErrors(e => ({ ...e, [`apo_${id}_${field}`]: undefined }))
+  }
+
+  function validate() {
+    const e = {}
+    if (!cid) e.clienteId = 'Selecciona el cliente.'
+    rows.forEach(r => {
+      if (!r.nombre.trim())    e[`apo_${r.id}_nombre`]    = 'Requerido'
+      if (!r.numeroDoi.trim()) e[`apo_${r.id}_numeroDoi`] = 'Requerido'
+    })
+    setErrors(e)
+    return Object.keys(e).length === 0
+  }
+
+  function handleSave() {
+    if (!validate()) return
+    onSave(cid, rows)
+  }
+
+  return (
+    <>
+      <div className={clsx('fixed inset-0 z-40 bg-black/25 transition-opacity duration-200',
+        open ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none')}
+        onClick={onClose} />
+      <div className="fixed right-0 top-0 h-full z-50 flex flex-col bg-white transition-transform duration-250"
+        style={{ width: 520, borderLeft: '1px solid var(--color-border)', boxShadow: '-4px 0 24px rgba(0,0,0,0.06)', transform: open ? 'translateX(0)' : 'translateX(100%)' }}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b shrink-0" style={{ borderColor: 'var(--color-border)' }}>
+          <div>
+            <h2 className="text-sm font-semibold text-gray-900">Apoderados</h2>
+            <p className="text-[11px] text-gray-400 mt-0.5">
+              Registra los apoderados del cliente: nombres y apellidos, tipo y número de DOI.
+            </p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors">
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+
+          {!fixedClienteId && (
+            <Field label="Cliente" required error={errors.clienteId}>
+              <DrawerSelect value={clienteId} onChange={setClienteId}
+                options={CLIENTES_ACTIVOS} placeholder="Seleccionar cliente..." error={errors.clienteId} />
+            </Field>
+          )}
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-medium text-gray-700">
+                Apoderados registrados {rows.length > 0 && <span className="text-gray-400">({rows.length})</span>}
+              </label>
+              <button type="button" onClick={addApoderado} disabled={!cid}
+                className={clsx('flex items-center gap-1 text-[11px] font-medium transition-colors',
+                  cid ? 'text-blue-600 hover:text-blue-700' : 'text-gray-300 cursor-not-allowed')}>
+                <UserPlus size={12} /> Agregar
+              </button>
+            </div>
+
+            {!cid ? (
+              <div className="text-center py-6 rounded-lg border border-dashed border-gray-200">
+                <p className="text-xs text-gray-400">Selecciona un cliente para registrar sus apoderados.</p>
+              </div>
+            ) : rows.length === 0 ? (
+              <div className="text-center py-6 rounded-lg border border-dashed border-gray-200">
+                <p className="text-xs text-gray-400">Sin apoderados. Haz clic en "Agregar".</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {rows.map((apo, i) => (
+                  <ApoderadoRow key={apo.id} apo={apo} index={i}
+                    errors={{ nombre: errors[`apo_${apo.id}_nombre`], numeroDoi: errors[`apo_${apo.id}_numeroDoi`] }}
+                    onChange={(f, v) => updateApoderado(apo.id, f, v)}
+                    onRemove={() => removeApoderado(apo.id)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t flex gap-2 shrink-0" style={{ borderColor: 'var(--color-border)' }}>
+          <button onClick={handleSave} disabled={!cid}
+            className={clsx('flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-white text-sm font-semibold transition-colors',
+              cid ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300 cursor-not-allowed')}>
+            <Check size={14} /> Guardar apoderados
+          </button>
+          <button onClick={onClose}
+            className="px-4 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </>
+  )
+}
+
+/* ═══════════════════════════════════════════════
    MAIN TAB
 ═══════════════════════════════════════════════ */
 const PAGE_SIZE = 6
@@ -926,6 +1099,8 @@ export default function ConveniosTab({ clienteId, clienteNombre }) {
   const [detailDoc,     setDetailDoc]     = useState(null)
   const [reviewDoc,     setReviewDoc]     = useState(null)
   const [confirmAction, setConfirmAction] = useState(null)
+  const [apoderados,    setApoderados]    = useState(MOCK_APODERADOS)
+  const [apoderadosOpen,setApoderadosOpen]= useState(false)
 
   /* Stats */
   const scope = clienteId ? docs.filter(d => d.clienteId === clienteId) : docs
@@ -1034,6 +1209,15 @@ export default function ConveniosTab({ clienteId, clienteNombre }) {
     setConfirmAction(null)
   }
 
+  /* Guardar apoderados — reemplaza los del cliente con las filas válidas */
+  function handleSaveApoderados(cid, rows) {
+    const limpias = rows
+      .filter(r => r.nombre.trim() && r.numeroDoi.trim())
+      .map(r => ({ id: r.id, clienteId: cid, nombre: r.nombre.trim(), tipoDoi: r.tipoDoi, numeroDoi: r.numeroDoi.trim() }))
+    setApoderados(prev => [...prev.filter(a => a.clienteId !== cid), ...limpias])
+    setApoderadosOpen(false)
+  }
+
   return (
     <>
       {/* Stats */}
@@ -1052,7 +1236,11 @@ export default function ConveniosTab({ clienteId, clienteNombre }) {
       </div>
 
       {/* Toolbar */}
-      <div className="flex justify-end mb-3">
+      <div className="flex justify-end gap-2 mb-3">
+        <button onClick={() => setApoderadosOpen(true)}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 text-sm font-semibold transition-colors">
+          <UserPlus size={14} /> Apoderados
+        </button>
         <button onClick={() => setDrawerOpen(true)}
           className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors">
           <Plus size={14} /> Nuevo documento
@@ -1184,6 +1372,14 @@ export default function ConveniosTab({ clienteId, clienteNombre }) {
       />
 
       <DetailDrawer open={!!detailDoc} doc={detailDoc} onClose={() => setDetailDoc(null)} />
+
+      <ApoderadosDrawer
+        open={apoderadosOpen}
+        onClose={() => setApoderadosOpen(false)}
+        onSave={handleSaveApoderados}
+        fixedClienteId={clienteId}
+        initial={apoderados}
+      />
 
       <ReviewModal open={!!reviewDoc} doc={reviewDoc} onClose={() => setReviewDoc(null)} onSave={handleReviewSave} />
 
